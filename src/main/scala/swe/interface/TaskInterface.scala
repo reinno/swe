@@ -1,4 +1,4 @@
-package swe.Interface
+package swe.interface
 
 import swe.model._
 

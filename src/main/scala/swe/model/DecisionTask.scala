@@ -4,4 +4,4 @@ case class DecisionTask(runId: String,
                         startedEventId: String,
                         workflowType: WorkflowType,
                         workflowExecution: WorkflowExecution,
-                        eventHistory: List[HistoryEvent])
+                        eventHistory: List[WorkflowEvent])

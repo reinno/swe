@@ -13,6 +13,7 @@ resolvers ++= Seq("Typesafe Repository" at "http://repo.typesafe.com/typesafe/re
 libraryDependencies ++= {
   val akkaV = "2.4.10"
   val json4sV = "3.3.0"
+  val scalazV = "7.2.3"
 
   Seq(
     "com.typesafe.akka"   %% "akka-actor"               % akkaV,
@@ -24,6 +25,10 @@ libraryDependencies ++= {
     "com.typesafe.akka"   %% "akka-stream"              % akkaV,
     "com.typesafe.akka"   %% "akka-http-testkit"        % akkaV    % "test",
     "com.typesafe.akka"   %% "akka-http-spray-json-experimental" % akkaV,
+
+    "org.scalaz"        %% "scalaz-core"                % scalazV,
+
+    "com.github.nscala-time" %% "nscala-time"           % "2.14.0",
 
 
     "org.json4s"          %% "json4s-native"            % json4sV,

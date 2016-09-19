@@ -5,4 +5,4 @@ case class ActivityTask(activityId: String,
                         activityType: ActivityType,
                         workflowExecution: Option[WorkflowExecution],
                         startedEventId: String,
-                        input: String)
+                        input: Option[String])

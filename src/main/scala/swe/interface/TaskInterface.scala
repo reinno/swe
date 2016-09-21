@@ -15,7 +15,8 @@ object TaskInterface {
                       input: String)
 
   case class PostTaskStatus(closeStatus: String,
-                            output: String)
+                            details: Option[String],
+                            output: Option[String])
 
   /**
     * Http Url: v1/task/{run_id}/heartbeat

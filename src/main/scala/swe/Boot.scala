@@ -24,7 +24,7 @@ class Boot {
   val apiMaster = system.actorOf(Props[ApiMaster], "ApiMaster")
 
   implicit val mat = ActorMaterializer()
-  val service = new ApiRouteService(system, apiMaster)
+  val service = new ApiRouteService(apiMaster)
 
 
   val bindFuture = Http().bindAndHandle(Route.handlerFlow(service.route),

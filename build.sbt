@@ -33,6 +33,7 @@ libraryDependencies ++= {
 
     "org.json4s"          %% "json4s-native"            % json4sV,
     "org.json4s"          %% "json4s-jackson"           % json4sV,
+    "org.json4s"          %% "json4s-ext"               % json4sV,
     "de.heikoseeberger"   %% "akka-http-json4s"         % "1.10.0",
 
     "org.iq80.leveldb"    %  "leveldb"                  % "0.7",

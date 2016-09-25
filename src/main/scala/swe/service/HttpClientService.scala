@@ -32,3 +32,9 @@ class HttpClientSingleCustomHttps(connectionContext: HttpsConnectionContext)
   def sendHttpReq(req: HttpRequest): Future[HttpResponse] =
     Http().singleRequest(req, connectionContext = connectionContext)
 }
+
+object HttpClientService {
+  type HttpClientFactory = () => HttpClientSender
+}
+
+

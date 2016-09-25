@@ -1,0 +1,10 @@
+package swe.service
+
+import akka.actor.ActorSystem
+import akka.testkit.{ImplicitSender, TestKit}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, WordSpecLike}
+
+object BaseServiceHelper {
+  abstract class TestSpec extends TestKit(ActorSystem("MySpec"))
+    with ImplicitSender with WordSpecLike with BeforeAndAfterAll with BeforeAndAfterEach
+}

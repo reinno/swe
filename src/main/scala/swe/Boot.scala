@@ -2,7 +2,7 @@ package swe
 
 
 import swe.route.ApiRouteService
-import swe.service.ApiMaster
+import swe.service.{HttpClientSingle, HttpClientService, ApiMaster}
 import swe.util.Constants
 
 import scala.concurrent.Await
@@ -20,10 +20,13 @@ import scala.language.postfixOps
 class Boot {
   implicit val system = ActorSystem("swe")
   implicit val timeout = Timeout(10 seconds)
-
-  val apiMaster = system.actorOf(Props[ApiMaster], "ApiMaster")
-
   implicit val mat = ActorMaterializer()
+
+  val httpClientSingleFactory: HttpClientService.HttpClientFactory =
+    () => new HttpClientSingle
+  val apiMaster = system.actorOf(ApiMaster.props(httpClientSingleFactory), "ApiMaster")
+
+
   val service = new ApiRouteService(apiMaster)
 
 

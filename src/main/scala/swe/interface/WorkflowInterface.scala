@@ -6,17 +6,17 @@ object WorkflowInterface {
   /**
     * Http Url: v1/workflow/execution/history
     * Http Method: Get
-   * @return History
+   * @return
     */
   case class GetWorkflowExecutionHistory(domain: String,
-                                         workflowExecution: WorkflowExecution,
+                                         workflowExecution: Workflow.Instance,
                                          nextPageToken: String = "",
                                          maxPageSize: Int = 1000,
                                          reserveOrder: Boolean = true)
   /**
     * Http Url: v1/workflow/activity/poll
     * Http Method: Post
-    * @return ActivityTask
+    * @return Activity.Instance
     */
   case class PollActivityTask(domain: String,
                               taskList: String,
@@ -25,7 +25,7 @@ object WorkflowInterface {
   /**
     * Http Url: v1/workflow/decision/poll
     * Http Method: Post
-    * @return DecisionTask
+    * @return Decision.Instacne
     */
   case class PollDecisionTask(domain: String,
                               taskList: String,
@@ -35,7 +35,7 @@ object WorkflowInterface {
     * Http Url: /workflow/activity/{run_id}/heartbeat
     * Http Method: Post
     * @param details details if something need log.
-    * @return ActivityTaskStatus
+    * @return
     */
   case class PostActivityTaskHeartBeat(details: String = "")
 }

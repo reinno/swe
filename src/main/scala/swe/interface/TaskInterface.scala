@@ -9,21 +9,21 @@ object TaskInterface {
     *
     * @return String task run_Id
     */
-  case class PostTask(task_type: ActivityType,
+  case class PostTask(task_type: Activity.Type,
                       report_endpoint: String,
                       timeout_seconds: String,
-                      input: String)
+                      input: Option[String])
 
   case class PostTaskStatus(closeStatus: String,
-                            details: Option[String],
-                            output: Option[String])
+                            details: Option[String] = None,
+                            output: Option[String] = None)
 
   /**
     * Http Url: v1/task/{run_id}/heartbeat
     * Http Method: Post
     *
     * @param details details if something need log.
-    * @return ActivityTaskStatus
+    * @return
     */
-  case class PostTaskHeartBeat(details: String = "")
+  case class PostTaskHeartBeat(details: Option[String] = None)
 }

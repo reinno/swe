@@ -1,8 +1,10 @@
 package swe.service
 
 import akka.actor.Props
+import akka.pattern.pipe
 import akka.stream.Materializer
 import swe.service.Task.TaskMaster
+import swe.util.ActorUtil
 
 
 object ApiMaster {
@@ -13,12 +15,15 @@ object ApiMaster {
 
 class ApiMaster(httpClientFactory: HttpClientService.HttpClientFactory)
                (implicit val mat: Materializer) extends BaseService {
+  import context.dispatcher
+
   implicit val httpClientItf: HttpClientSender = httpClientFactory()
   val taskMaster = context.actorOf(TaskMaster.props(), "task-master")
 
   override def receive: Receive = {
     case msg: TaskMaster.Msg =>
-      taskMaster ! msg
+      val asker = sender()
+      ActorUtil.askActor(taskMaster, msg) pipeTo asker
 
     case msg =>
       log.warning(s"unknown msg: $msg")

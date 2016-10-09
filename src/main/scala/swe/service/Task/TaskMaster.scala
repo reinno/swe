@@ -39,6 +39,12 @@ object TaskMaster {
     case class Response(instances: List[Activity.Instance])
   }
 
+  case class PollTasks(entity: PollTasks.Entity)
+  object PollTasks {
+    case class Entity(activityType: Activity.Type, num: Int)
+    case class Response(instances: List[Activity.Instance])
+  }
+
   def props()(implicit httpClientItf: HttpClientSender, mat: Materializer): Props = Props(new TaskMaster())
 
   def getRunId: String = java.util.UUID.randomUUID.toString
@@ -47,27 +53,32 @@ object TaskMaster {
 class TaskMaster(implicit httpClientItf: HttpClientSender, implicit val mat: Materializer) extends BaseService {
   import TaskMaster._
 
-  var taskWaitScheduled: Map[String, Activity.Instance] = Map.empty
+  var taskWaitScheduled: List[Activity.Instance] = Nil
   var taskRunning: Map[String, Activity.Instance] = Map.empty
   var taskEnded: Map[String, Activity.Instance] = Map.empty
 
   override def receive: Receive = {
     case msg: PostTask =>
       val instance = getActivityInstance(msg)
-      taskWaitScheduled = taskWaitScheduled.updated(instance.runId, instance)
+      taskWaitScheduled = taskWaitScheduled :+ instance
+      context.parent ! TaskPoller.NewTaskNotify(instance.activityType)
       sender ! StatusCodes.OK
+
+    case msg: PollTasks =>
+      val result = popWaitScheduledActivities(msg.entity, taskWaitScheduled)
+      taskWaitScheduled = result._1
 
     case msg: GetTask =>
       sender() ! getTask(msg.runId)
 
     case GetTasks =>
-      sender ! GetTasks.Response((taskWaitScheduled ++ taskRunning ++ taskEnded).values.toList)
+      sender ! GetTasks.Response((taskRunning ++ taskEnded).values.toList)
 
     case _ =>
   }
 
   private def getTask(runId: String): Option[Activity.Instance] = {
-    (taskWaitScheduled ++ taskRunning ++ taskEnded).get(runId)
+    (taskRunning ++ taskEnded).get(runId)
   }
 
   private def getActivityInstance(msg: PostTask): Activity.Instance = {
@@ -75,5 +86,22 @@ class TaskMaster(implicit httpClientItf: HttpClientSender, implicit val mat: Mat
       activityType = Activity.Type(msg.entity.name, msg.entity.version),
       createTimeStamp = DateTime.now,
       currentStatus = Activity.Status.WaitScheduled.value)
+  }
+
+  private def popWaitScheduledActivities(param: PollTasks.Entity,
+                                         activities: List[Activity.Instance])
+  : (List[Activity.Instance], List[Activity.Instance]) = {
+    activities.foldLeft[(List[Activity.Instance], List[Activity.Instance])]((Nil, Nil))(
+      (result, activity) =>
+        if (activityMatch(activity, param.activityType)) {
+          (result._1, result._2 :+ activity)
+        } else {
+          (result._1 :+ activity, result._2)
+        }
+    )
+  }
+
+  private def activityMatch(activity: Activity.Instance, activityType: Activity.Type): Boolean = {
+    ???
   }
 }

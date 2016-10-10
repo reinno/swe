@@ -18,6 +18,7 @@ class TaskPoller(implicit httpClientItf: HttpClientSender, implicit val mat: Mat
     case msg: NewTaskNotify =>
       // find task service
       // poll task
+      context.parent ! TaskMaster.PollTasks(TaskMaster.PollTasks.Entity(msg.activityType, 1))
 
     case _ =>
   }

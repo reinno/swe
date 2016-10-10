@@ -67,6 +67,9 @@ class TaskMaster(implicit httpClientItf: HttpClientSender, implicit val mat: Mat
     case msg: PollTasks =>
       val result = popWaitScheduledActivities(msg.entity, taskWaitScheduled)
       taskWaitScheduled = result._1
+      result._2.foreach(instance =>
+        taskRunning = taskRunning.updated(instance.runId, instance))
+      sender ! PollTasks.Response(result._2)
 
     case msg: GetTask =>
       sender() ! getTask(msg.runId)
@@ -102,6 +105,11 @@ class TaskMaster(implicit httpClientItf: HttpClientSender, implicit val mat: Mat
   }
 
   private def activityMatch(activity: Activity.Instance, activityType: Activity.Type): Boolean = {
-    ???
+    if (activity.activityType.version.isEmpty || activityType.version.isEmpty) {
+      activity.activityType.name == activityType.name
+    } else {
+      activity.activityType.name == activityType.name &&
+        activity.activityType.version == activityType.version
+    }
   }
 }

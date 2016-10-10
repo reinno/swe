@@ -1,11 +1,10 @@
 package swe.service.Task
 
-import akka.actor.Props
+import akka.actor.{ActorRef, Props}
 import akka.http.scaladsl.model.StatusCodes
-import akka.stream.Materializer
-import swe.model.Activity
-import swe.service.{BaseService, HttpClientSender}
 import com.github.nscala_time.time.Imports.DateTime
+import swe.model.Activity
+import swe.service.BaseService
 
 object TaskMaster {
   sealed trait Msg
@@ -19,7 +18,7 @@ object TaskMaster {
                       defaultTaskPriority: Int = 0,
                       heartbeatTimeout: Option[Int] = None,
                       startToCloseTimeout: Option[Int] = None,
-                      input: Option[String])
+                      input: Option[String] = None)
   }
   case class DeleteTask(taskId: String) extends Msg
 
@@ -41,16 +40,16 @@ object TaskMaster {
 
   case class PollTasks(entity: PollTasks.Entity)
   object PollTasks {
-    case class Entity(activityType: Activity.Type, num: Int)
+    case class Entity(activityType: Activity.Type, num: Int = 1)
     case class Response(instances: List[Activity.Instance])
   }
 
-  def props()(implicit httpClientItf: HttpClientSender, mat: Materializer): Props = Props(new TaskMaster())
+  def props(apiMaster: ActorRef): Props = Props(new TaskMaster(apiMaster))
 
   def getRunId: String = java.util.UUID.randomUUID.toString
 }
 
-class TaskMaster(implicit httpClientItf: HttpClientSender, implicit val mat: Materializer) extends BaseService {
+class TaskMaster(apiMaster: ActorRef) extends BaseService {
   import TaskMaster._
 
   var taskWaitScheduled: List[Activity.Instance] = Nil
@@ -61,8 +60,8 @@ class TaskMaster(implicit httpClientItf: HttpClientSender, implicit val mat: Mat
     case msg: PostTask =>
       val instance = getActivityInstance(msg)
       taskWaitScheduled = taskWaitScheduled :+ instance
-      context.parent ! TaskPoller.NewTaskNotify(instance.activityType)
-      sender ! StatusCodes.OK
+      apiMaster ! TaskPoller.NewTaskNotify(instance.activityType)
+      sender ! instance.runId
 
     case msg: PollTasks =>
       val result = popWaitScheduledActivities(msg.entity, taskWaitScheduled)

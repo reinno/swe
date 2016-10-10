@@ -18,7 +18,7 @@ class ApiMaster(httpClientFactory: HttpClientService.HttpClientFactory)
   import context.dispatcher
 
   implicit val httpClientItf: HttpClientSender = httpClientFactory()
-  val taskMaster = context.actorOf(TaskMaster.props(), "task-master")
+  val taskMaster = context.actorOf(TaskMaster.props(self), "task-master")
 
   override def receive: Receive = {
     case msg: TaskMaster.Msg =>

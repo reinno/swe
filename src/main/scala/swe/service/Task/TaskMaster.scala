@@ -1,7 +1,6 @@
 package swe.service.Task
 
 import akka.actor.{ActorRef, Props}
-import akka.http.scaladsl.model.StatusCodes
 import com.github.nscala_time.time.Imports.DateTime
 import swe.model.Activity
 import swe.service.BaseService
@@ -41,7 +40,7 @@ object TaskMaster {
   case class PollTasks(entity: PollTasks.Entity)
   object PollTasks {
     case class Entity(activityType: Activity.Type, num: Int = 1)
-    case class Response(instances: List[Activity.Instance])
+    case class Response(instances: List[Activity.InstanceInput])
   }
 
   def props(apiMaster: ActorRef): Props = Props(new TaskMaster(apiMaster))
@@ -68,7 +67,7 @@ class TaskMaster(apiMaster: ActorRef) extends BaseService {
       taskWaitScheduled = result._1
       result._2.foreach(instance =>
         taskRunning = taskRunning.updated(instance.runId, instance))
-      sender ! PollTasks.Response(result._2)
+      sender ! PollTasks.Response(result._2.map(Activity.InstanceInput(_)))
 
     case msg: GetTask =>
       sender() ! getTask(msg.runId)

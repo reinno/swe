@@ -16,12 +16,18 @@ object Activity {
                            defaultTaskStartToCloseTimeout: Option[Duration] = Some(Duration.Inf))
 
 
-  case class InstanceInput(activityId: String,
-                      runId: String,
-                      activityType: Activity.Type,
-                      workflowExecution: Option[Workflow.Instance] = None,
-                      startedEventId: String,
-                      input: Option[String] = None)
+  object InstanceInput {
+    def apply(instance: Instance): InstanceInput ={
+      InstanceInput(instance.activityId, instance.runId,
+        instance.activityType, instance.workflowExecution, instance.startedEventId, instance.input)
+    }
+  }
+  case class InstanceInput(activityId: Option[String],
+                           runId: String,
+                           activityType: Activity.Type,
+                           workflowExecution: Option[Workflow.Instance] = None,
+                           startedEventId: Option[String],
+                           input: Option[String] = None)
 
 
   case class InstanceInfo(execution: Option[Workflow.Instance] = None,
@@ -36,22 +42,28 @@ object Activity {
   sealed abstract class Status(val value: String)
 
   object Status {
+
     case object WaitScheduled extends Status("WaitScheduled")
+
     case object Initialize extends Status("Initialize")
+
     case object Running extends Status("Running")
+
     case object Deleted extends Status("Deleted")
+
     case object Failed extends Status("Failed")
+
     case object Complete extends Status("Complete")
 
     def unapply(s: String): Option[Status] =
       s match {
         case "WaitScheduled" => Some(WaitScheduled)
-        case "Initialize"    => Some(Initialize)
-        case "Running"       => Some(Running)
-        case "Deleted"       => Some(Deleted)
-        case "Failed"        => Some(Failed)
-        case "Complete"      => Some(Complete)
-        case _               => None
+        case "Initialize" => Some(Initialize)
+        case "Running" => Some(Running)
+        case "Deleted" => Some(Deleted)
+        case "Failed" => Some(Failed)
+        case "Complete" => Some(Complete)
+        case _ => None
       }
   }
 
@@ -73,7 +85,7 @@ object Activity {
                       createTimeStamp: DateTime,
                       startTimeStamp: Option[DateTime] = None,
                       lastHeartBeatTimeStamp: Option[DateTime] = None,
-                      closeTimeStamp: Option[DateTime] =  None,
+                      closeTimeStamp: Option[DateTime] = None,
                       currentStatus: String,
                       closeStatus: Option[String] = None,
                       cancelRequested: Boolean = false)

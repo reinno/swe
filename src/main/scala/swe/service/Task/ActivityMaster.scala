@@ -5,8 +5,8 @@ import com.github.nscala_time.time.Imports.DateTime
 import swe.model.Activity
 import swe.service.BaseService
 
-object TaskMaster {
-  sealed trait Msg
+object ActivityMaster {
+  sealed trait Msg extends BaseService.Msg
 
   case class PostTask(entity: PostTask.Entity) extends Msg
   object PostTask {
@@ -43,13 +43,13 @@ object TaskMaster {
     case class Response(instances: List[Activity.InstanceInput])
   }
 
-  def props(apiMaster: ActorRef): Props = Props(new TaskMaster(apiMaster))
+  def props(apiMaster: ActorRef): Props = Props(new ActivityMaster(apiMaster))
 
   def getRunId: String = java.util.UUID.randomUUID.toString
 }
 
-class TaskMaster(apiMaster: ActorRef) extends BaseService {
-  import TaskMaster._
+class ActivityMaster(apiMaster: ActorRef) extends BaseService {
+  import ActivityMaster._
 
   var taskWaitScheduled: List[Activity.Instance] = Nil
   var taskRunning: Map[String, Activity.Instance] = Map.empty
@@ -59,7 +59,7 @@ class TaskMaster(apiMaster: ActorRef) extends BaseService {
     case msg: PostTask =>
       val instance = getActivityInstance(msg)
       taskWaitScheduled = taskWaitScheduled :+ instance
-      apiMaster ! TaskPoller.NewTaskNotify(instance.activityType)
+      apiMaster ! ActivityPoller.NewTaskNotify(instance.activityType)
       sender ! instance.runId
 
     case msg: PollTasks =>

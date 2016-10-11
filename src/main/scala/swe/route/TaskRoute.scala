@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import swe.model.Activity
-import swe.service.Task.TaskMaster
+import swe.service.Task.ActivityMaster
 
 import scala.concurrent.ExecutionContext
 
@@ -21,31 +21,31 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
         runId: String => {
           path("heartbeat") {
             post {
-              entity(as[TaskMaster.PostTaskHeartBeat.Entity]) {
-                entity => askActorRoute[StatusCode](apiMaster, TaskMaster.PostTaskHeartBeat(runId, entity))
+              entity(as[ActivityMaster.PostTaskHeartBeat.Entity]) {
+                entity => askActorRoute[StatusCode](apiMaster, ActivityMaster.PostTaskHeartBeat(runId, entity))
               }
             }
           } ~ path("status") {
             post {
-              entity(as[TaskMaster.PostTaskStatus.Entity]) {
-                entity => askActorRoute[StatusCode](apiMaster, TaskMaster.PostTaskStatus(runId, entity))
+              entity(as[ActivityMaster.PostTaskStatus.Entity]) {
+                entity => askActorRoute[StatusCode](apiMaster, ActivityMaster.PostTaskStatus(runId, entity))
               }
             }
           } ~ pathEndOrSingleSlash {
             delete {
-              askActorRoute[StatusCode](apiMaster, TaskMaster.DeleteTask(runId))
+              askActorRoute[StatusCode](apiMaster, ActivityMaster.DeleteTask(runId))
             } ~ get {
-              askActorRouteOption[Activity.Instance](apiMaster, TaskMaster.GetTask(runId))
+              askActorRouteOption[Activity.Instance](apiMaster, ActivityMaster.GetTask(runId))
             }
           }
         }
       } ~ pathEndOrSingleSlash {
         post {
-          entity(as[TaskMaster.PostTask.Entity]) {
-            entity => askActorRoute[String](apiMaster, TaskMaster.PostTask(entity))
+          entity(as[ActivityMaster.PostTask.Entity]) {
+            entity => askActorRoute[String](apiMaster, ActivityMaster.PostTask(entity))
           }
         } ~ get {
-          askActorRoute[TaskMaster.GetTasks.Response](apiMaster, TaskMaster.GetTasks)
+          askActorRoute[ActivityMaster.GetTasks.Response](apiMaster, ActivityMaster.GetTasks)
         }
       }
     }

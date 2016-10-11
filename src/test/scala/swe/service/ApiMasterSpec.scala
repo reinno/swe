@@ -3,7 +3,7 @@ package swe.service
 import akka.actor.Props
 import akka.stream.ActorMaterializer
 import akka.testkit.TestProbe
-import swe.service.Task.TaskMaster
+import swe.service.Task.ActivityMaster
 
 class ApiMasterSpec extends BaseServiceHelper.TestSpec {
   "ApiMaster" must {
@@ -24,13 +24,13 @@ class ApiMasterSpec extends BaseServiceHelper.TestSpec {
     "transfer task master msg" in {
       val taskMasterProbe = TestProbe()
       class ApiMasterExtend(httpClientFactory: HttpClientService.HttpClientFactory) extends ApiMaster(httpClientFactory) {
-        override val taskMaster = taskMasterProbe.ref
+        override val activityMaster = taskMasterProbe.ref
       }
 
       val apiMaster = system.actorOf(Props(new ApiMasterExtend(httpClientSingleFactory)), "ApiMaster")
       watch(apiMaster)
 
-      val msg = TaskMaster.DeleteTask("1")
+      val msg = ActivityMaster.DeleteTask("1")
       apiMaster ! msg
       taskMasterProbe.expectMsg(msg)
       system.stop(apiMaster)

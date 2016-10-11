@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 import org.scalatest.tools.Durations
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import swe.model.Activity
-import swe.service.Task.TaskMaster
+import swe.service.Task.ActivityMaster
 
 import scala.concurrent.duration.Duration
 
@@ -33,8 +33,8 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: TaskMaster.DeleteTask =>
-            msg shouldBe TaskMaster.DeleteTask(runId)
+          case msg: ActivityMaster.DeleteTask =>
+            msg shouldBe ActivityMaster.DeleteTask(runId)
             sender ! StatusCodes.OK
             KeepRunning
         }
@@ -52,8 +52,8 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: TaskMaster.GetTask =>
-            msg shouldBe TaskMaster.GetTask(runId)
+          case msg: ActivityMaster.GetTask =>
+            msg shouldBe ActivityMaster.GetTask(runId)
             sender ! Some(Activity.Instance(runId = runId,
               activityType = Activity.Type("demoTask"),
               heartbeatTimeout = Some(Duration(3, "min")),

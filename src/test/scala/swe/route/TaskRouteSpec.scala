@@ -56,7 +56,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
             msg shouldBe ActivityMaster.GetTask(runId)
             sender ! Some(Activity.Instance(runId = runId,
               activityType = Activity.Type("demoTask"),
-              heartbeatTimeout = Some(Duration(3, "min")),
+              heartbeatTimeout = Duration(3, "min"),
               createTimeStamp = DateTime.now,
               currentStatus = Activity.Status.WaitScheduled.value))
             KeepRunning

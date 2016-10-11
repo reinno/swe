@@ -90,7 +90,7 @@ object Activity {
                       scheduleToStart: Option[Duration] = Some(Duration.Inf),
                       scheduleToClose: Option[Duration] = Some(Duration.Inf),
                       priority: Int = 0,
-                      heartbeatTimeout: Option[Duration] = Some(Duration.Inf),
+                      heartbeatTimeout: Duration = Duration.Inf,
                       startToCloseTimeout: Option[Duration] = Some(Duration.Inf),
                       history: List[Event] = Nil,
                       input: Option[String] = None,

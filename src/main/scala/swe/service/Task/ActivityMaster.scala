@@ -175,7 +175,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     Activity.Instance(runId = getRunId,
       activityType = Activity.Type(msg.entity.name, msg.entity.version),
       createTimeStamp = DateTime.now,
-      heartbeatTimeout = Some(Duration(heartbeatTimeout, SECONDS)),
+      heartbeatTimeout = Duration(heartbeatTimeout, SECONDS),
       startToCloseTimeout = Some(Duration(startToCloseTimeout, SECONDS)),
       currentStatus = Activity.Status.WaitScheduled.value)
   }

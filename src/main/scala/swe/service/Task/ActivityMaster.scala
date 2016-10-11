@@ -3,6 +3,7 @@ package swe.service.Task
 import akka.actor.{ActorRef, Props}
 import akka.http.scaladsl.model.StatusCodes
 import com.github.nscala_time.time.Imports.DateTime
+import swe.{SettingsActor, Settings}
 import swe.model.Activity
 import swe.service.BaseService
 
@@ -51,8 +52,9 @@ object ActivityMaster {
   def getRunId: String = java.util.UUID.randomUUID.toString
 }
 
-class ActivityMaster(apiMaster: ActorRef) extends BaseService {
+class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor {
   import ActivityMaster._
+
 
   var taskWaitScheduled: List[Activity.Instance] = Nil
   var taskRunning: Map[String, Activity.Instance] = Map.empty
@@ -167,8 +169,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService {
   }
 
   private def getActivityInstance(msg: PostTask): Activity.Instance = {
-    val heartbeatTimeout = msg.entity.heartbeatTimeout.getOrElse(10).toLong
-    val startToCloseTimeout = msg.entity.heartbeatTimeout.getOrElse(120).toLong
+    val heartbeatTimeout = msg.entity.heartbeatTimeout.getOrElse(settings.defaultHeartBeatTimeout).toLong
+    val startToCloseTimeout = msg.entity.heartbeatTimeout.getOrElse(settings.defaultStartToEndTimeout).toLong
 
     Activity.Instance(runId = getRunId,
       activityType = Activity.Type(msg.entity.name, msg.entity.version),

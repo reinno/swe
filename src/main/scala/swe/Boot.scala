@@ -22,6 +22,7 @@ class Boot {
   implicit val timeout = Timeout(10 seconds)
   implicit val mat = ActorMaterializer()
 
+  val settings = Settings(system)
   val httpClientSingleFactory: HttpClientService.HttpClientFactory =
     () => new HttpClientSingle
   val apiMaster = system.actorOf(ApiMaster.props(httpClientSingleFactory), "ApiMaster")
@@ -31,7 +32,7 @@ class Boot {
 
 
   val bindFuture = Http().bindAndHandle(Route.handlerFlow(service.route),
-    Constants.SERVER_HOST, Constants.SERVER_PORT)
+    settings.bindAddr, settings.bindPort)
 
   Await.result(bindFuture, 15 seconds)
   Await.result(system.whenTerminated, Duration.Inf)

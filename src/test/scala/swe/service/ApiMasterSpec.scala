@@ -8,11 +8,11 @@ import swe.service.Task.ActivityMaster
 class ApiMasterSpec extends BaseServiceHelper.TestSpec {
   "ApiMaster" must {
     implicit val mat = ActorMaterializer()
-    val httpClientSingleFactory: HttpClientService.HttpClientFactory =
+    implicit val httpClientSingleFactory: HttpClientService.HttpClientFactory =
       () => new HttpClientSingle
 
     "init success" in {
-      val apiMaster = system.actorOf(ApiMaster.props(httpClientSingleFactory), "ApiMaster")
+      val apiMaster = system.actorOf(ApiMaster.props(), "ApiMaster")
       watch(apiMaster)
 
       apiMaster ! "test"
@@ -23,11 +23,11 @@ class ApiMasterSpec extends BaseServiceHelper.TestSpec {
 
     "transfer task master msg" in {
       val taskMasterProbe = TestProbe()
-      class ApiMasterExtend(httpClientFactory: HttpClientService.HttpClientFactory) extends ApiMaster(httpClientFactory) {
+      class ApiMasterExtend extends ApiMaster {
         override val activityMaster = taskMasterProbe.ref
       }
 
-      val apiMaster = system.actorOf(Props(new ApiMasterExtend(httpClientSingleFactory)), "ApiMaster")
+      val apiMaster = system.actorOf(Props(new ApiMasterExtend()), "ApiMaster")
       watch(apiMaster)
 
       val msg = ActivityMaster.DeleteTask("1")

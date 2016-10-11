@@ -3,21 +3,19 @@ package swe.service
 import akka.actor.{ActorRef, Props}
 import akka.pattern.pipe
 import akka.stream.Materializer
-import swe.service.Task.{ActivityPoller, ActivityMaster}
+import swe.service.Task.{ActivityMaster, ActivityPoller}
 import swe.util.ActorUtil
 
 
 object ApiMaster {
-  def props(httpClientFactory: HttpClientService.HttpClientFactory)(implicit mat: Materializer): Props = {
-    Props(new ApiMaster(httpClientFactory))
+  def props()(implicit mat: Materializer, httpClientFactory: HttpClientService.HttpClientFactory): Props = {
+    Props(new ApiMaster())
   }
 }
 
-class ApiMaster(httpClientFactory: HttpClientService.HttpClientFactory)
-               (implicit val mat: Materializer) extends BaseService {
+class ApiMaster(implicit val mat: Materializer, val httpClientFactory: HttpClientService.HttpClientFactory) extends BaseService {
   import context.dispatcher
 
-  implicit val httpClientItf: HttpClientSender = httpClientFactory()
   val activityMaster = context.actorOf(ActivityMaster.props(self), "task-master")
   val activityPoller = context.actorOf(ActivityPoller.props(self), "task-poller")
 

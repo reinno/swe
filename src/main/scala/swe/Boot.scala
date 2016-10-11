@@ -23,9 +23,9 @@ class Boot {
   implicit val mat = ActorMaterializer()
 
   val settings = Settings(system)
-  val httpClientSingleFactory: HttpClientService.HttpClientFactory =
+  implicit val httpClientSingleFactory: HttpClientService.HttpClientFactory =
     () => new HttpClientSingle
-  val apiMaster = system.actorOf(ApiMaster.props(httpClientSingleFactory), "ApiMaster")
+  val apiMaster = system.actorOf(ApiMaster.props(), "ApiMaster")
 
 
   val service = new ApiRouteService(apiMaster)

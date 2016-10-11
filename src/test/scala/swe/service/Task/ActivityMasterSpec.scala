@@ -51,5 +51,33 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
         expectTerminated(activityMaster)
       }
     }
+
+    "get wait scheduled tasks success" in {
+      val activityType = Activity.Type("demo", Some("v1.0"))
+      val apiMaster = TestProbe()
+      var runId: String = ""
+
+      val taskMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
+      watch(taskMaster)
+
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTask.Entity(activityType.name, activityType.version))
+      taskMaster ! msg
+      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
+      expectMsgPF() {
+        case msg: String =>
+          runId = msg
+      }
+
+      taskMaster ! ActivityMaster.GetTask(runId)
+      expectMsgPF() {
+        case Some(msg: Activity.Instance) =>
+          msg.runId shouldBe runId
+          msg.activityType shouldBe activityType
+          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
+      }
+
+      system.stop(taskMaster)
+      expectTerminated(taskMaster)
+    }
   }
 }

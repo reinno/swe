@@ -1,6 +1,7 @@
 package swe.service.Task
 
 import akka.actor.{ActorRef, Props}
+import akka.http.scaladsl.model.StatusCodes
 import com.github.nscala_time.time.Imports.DateTime
 import swe.model.Activity
 import swe.service.BaseService
@@ -55,6 +56,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService {
   var taskRunning: Map[String, Activity.Instance] = Map.empty
   var taskEnded: Map[String, Activity.Instance] = Map.empty
 
+  //noinspection ScalaStyle: CyclomaticComplexityChecker
+  // scalastyle:off CyclomaticComplexityChecker
   override def receive: Receive = {
     case msg: PostTask =>
       val instance = getActivityInstance(msg)
@@ -66,20 +69,100 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService {
       val result = popWaitScheduledActivities(msg.entity, taskWaitScheduled)
       taskWaitScheduled = result._1
       result._2.foreach(instance =>
-        taskRunning = taskRunning.updated(instance.runId, instance))
+        taskRunning = taskRunning.updated(instance.runId,
+          instance.copy(startTimeStamp = Some(DateTime.now),
+            currentStatus = Activity.Status.Initialize.value)))
       sender ! PollTasks.Response(result._2.map(Activity.InstanceInput(_)))
+
+    case msg: PostTaskStatus =>
+      taskRunning.get(msg.runId) match {
+        case Some(_) =>
+          updateActivityStatus(msg.runId, msg.entity.closeStatus, msg.entity.details, msg.entity.output)
+          sender ! StatusCodes.OK
+
+        case None =>
+          log.info(s"${msg.runId} activity not found")
+          sender ! StatusCodes.NotFound
+      }
+
+    case msg: PostTaskHeartBeat =>
+      taskRunning.get(msg.runId) match {
+        case Some(_) =>
+          updateActivityHeartBeat(msg.runId, msg.entity.details)
+          sender ! StatusCodes.OK
+
+        case None =>
+          log.info(s"${msg.runId} activity not found")
+          sender ! StatusCodes.NotFound
+      }
+
 
     case msg: GetTask =>
       sender() ! getTask(msg.runId)
 
     case GetTasks =>
-      sender ! GetTasks.Response((taskRunning ++ taskEnded).values.toList)
+      sender ! GetTasks.Response(taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
 
     case _ =>
   }
+  // scalastyle:on CyclomaticComplexityChecker
 
   private def getTask(runId: String): Option[Activity.Instance] = {
-    (taskRunning ++ taskEnded).get(runId)
+    (taskRunning ++ taskEnded).get(runId) match {
+      case t: Some[Activity.Instance] =>
+        t
+
+      case None =>
+        taskWaitScheduled.find(_.runId == runId)
+    }
+  }
+
+  private def updateActivityHeartBeat(runId: String, details: Option[String] = None): Unit = {
+    taskRunning.get(runId) match {
+      case Some(activity) =>
+        taskRunning = taskRunning.updated(runId, activity.copy(lastHeartBeatTimeStamp = Some(DateTime.now)))
+        details match {
+          case Some(s) if s.length != 0 =>
+            updateActivityStatus(runId, Activity.Status.Running.value, details)
+
+          case _ =>
+        }
+
+      case None =>
+        log.warning(s"$runId activity not found")
+    }
+  }
+
+  private def updateActivityStatus(runId: String,
+                                   status: String,
+                                   details: Option[String] = None,
+                                   output: Option[String] = None): Unit = {
+    taskRunning.get(runId) match {
+      case Some(activity) =>
+        if (isEndedStatus(status)) {
+          taskEnded = taskEnded.updated(runId, activity.copy(currentStatus = status,
+            output = output,
+            closeStatus = Some(status),
+            closeTimeStamp = Some(DateTime.now),
+            history = activity.history :+ Activity.Event(DateTime.now, status, details)))
+        } else {
+            taskRunning = taskRunning.updated(runId, activity.copy(currentStatus = status,
+              history = activity.history :+ Activity.Event(DateTime.now, status,details)))
+        }
+
+      case None =>
+        log.warning(s"$runId activity not found")
+    }
+  }
+
+  private def isEndedStatus(status: String): Boolean = {
+    Activity.Status.unapply(status) match {
+      case s: Some[Activity.Status] if s.get.isEndedStatus =>
+        true
+
+      case _ =>
+        false
+    }
   }
 
   private def getActivityInstance(msg: PostTask): Activity.Instance = {

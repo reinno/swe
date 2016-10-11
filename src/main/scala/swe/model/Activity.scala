@@ -39,7 +39,9 @@ object Activity {
                           closeStatus: Option[String],
                           cancelRequested: Boolean = false)
 
-  sealed abstract class Status(val value: String)
+  sealed abstract class Status(val value: String) {
+    val isEndedStatus: Boolean = false
+  }
 
   object Status {
 
@@ -49,11 +51,21 @@ object Activity {
 
     case object Running extends Status("Running")
 
-    case object Deleted extends Status("Deleted")
+    case object Deleted extends Status("Deleted") {
+      override val isEndedStatus: Boolean = true
+    }
 
-    case object Failed extends Status("Failed")
+    case object Failed extends Status("Failed") {
+      override val isEndedStatus: Boolean = true
+    }
 
-    case object Complete extends Status("Complete")
+    case object Complete extends Status("Complete") {
+      override val isEndedStatus: Boolean = true
+    }
+
+    case object Timeout extends Status("Timeout") {
+      override val isEndedStatus: Boolean = true
+    }
 
     def unapply(s: String): Option[Status] =
       s match {
@@ -63,11 +75,12 @@ object Activity {
         case "Deleted" => Some(Deleted)
         case "Failed" => Some(Failed)
         case "Complete" => Some(Complete)
+        case "Timeout" => Some(Timeout)
         case _ => None
       }
   }
 
-  case class Event(timestamp: DateTime, status: Status, details: Option[String])
+  case class Event(timestamp: DateTime, status: String, details: Option[String])
 
   case class Instance(activityId: Option[String] = None,
                       runId: String,

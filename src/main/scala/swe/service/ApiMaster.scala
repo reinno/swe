@@ -23,9 +23,11 @@ class ApiMaster(httpClientFactory: HttpClientService.HttpClientFactory)
 
   override def receive: Receive = {
     case msg: ActivityMaster.Msg =>
+      log.info(s"send $msg to activity master")
       forwardMsg(activityMaster, msg)
 
     case msg: ActivityPoller.Msg =>
+      log.info(s"send $msg to activity poller")
       forwardMsg(activityPoller, msg)
 
     case msg =>
@@ -37,6 +39,7 @@ class ApiMaster(httpClientFactory: HttpClientService.HttpClientFactory)
     msg match {
       case m: BaseService.Notify =>
         target ! msg
+
       case _ =>
         val requester = sender()
         ActorUtil.askActor(target, msg) pipeTo requester

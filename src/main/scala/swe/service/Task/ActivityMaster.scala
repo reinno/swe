@@ -6,6 +6,8 @@ import com.github.nscala_time.time.Imports.DateTime
 import swe.model.Activity
 import swe.service.BaseService
 
+import scala.concurrent.duration.{Duration, SECONDS}
+
 object ActivityMaster {
   sealed trait Msg extends BaseService.Msg
 
@@ -96,7 +98,6 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService {
           sender ! StatusCodes.NotFound
       }
 
-
     case msg: GetTask =>
       sender() ! getTask(msg.runId)
 
@@ -166,9 +167,14 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService {
   }
 
   private def getActivityInstance(msg: PostTask): Activity.Instance = {
+    val heartbeatTimeout = msg.entity.heartbeatTimeout.getOrElse(10).toLong
+    val startToCloseTimeout = msg.entity.heartbeatTimeout.getOrElse(120).toLong
+
     Activity.Instance(runId = getRunId,
       activityType = Activity.Type(msg.entity.name, msg.entity.version),
       createTimeStamp = DateTime.now,
+      heartbeatTimeout = Some(Duration(heartbeatTimeout, SECONDS)),
+      startToCloseTimeout = Some(Duration(startToCloseTimeout, SECONDS)),
       currentStatus = Activity.Status.WaitScheduled.value)
   }
 

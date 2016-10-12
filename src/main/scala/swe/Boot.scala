@@ -17,7 +17,7 @@ import akka.util.Timeout
 
 import scala.language.postfixOps
 
-class Boot {
+object Boot extends App {
   implicit val system = ActorSystem("swe")
   implicit val timeout = Timeout(10 seconds)
   implicit val mat = ActorMaterializer()

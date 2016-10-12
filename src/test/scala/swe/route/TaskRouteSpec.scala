@@ -1,12 +1,12 @@
 package swe.route
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.testkit.TestActor.{KeepRunning, AutoPilot}
+import akka.testkit.TestActor.{AutoPilot, KeepRunning}
 import akka.testkit.TestProbe
+import akka.util.ByteString
 import org.joda.time.DateTime
-import org.scalatest.tools.Durations
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import swe.model.Activity
 import swe.service.Task.ActivityMaster
@@ -65,6 +65,36 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     })
 
     Get(s"/api/v1/task/$runId") ~> route ~> check {
+      print(response.entity)
+      status shouldBe StatusCodes.OK
+    }
+  }
+
+  it should "handle post task success" in {
+
+    apiMasterProbe.setAutoPilot(new AutoPilot {
+      override def run(sender: ActorRef, msg: Any): AutoPilot = {
+        msg match {
+          case msg: ActivityMaster.PostTask =>
+            msg.entity shouldBe ActivityMaster.PostTask.Entity("test")
+            sender ! "1"
+            KeepRunning
+        }
+      }
+    })
+
+    val jsonRequest = ByteString(
+      s"""
+         |{
+         |    "name":"test"
+         |}
+        """.stripMargin)
+    val postRequest = HttpRequest(
+      HttpMethods.POST,
+      uri = "/api/v1/task",
+      entity = HttpEntity(MediaTypes.`application/json`, jsonRequest))
+
+    postRequest ~> route ~> check {
       print(response.entity)
       status shouldBe StatusCodes.OK
     }

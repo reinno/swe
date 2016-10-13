@@ -2,12 +2,14 @@ package swe.service.Task
 
 import akka.actor.{ActorRef, Props}
 import akka.http.scaladsl.model.StatusCodes
-import com.github.nscala_time.time.Imports.DateTime
-import swe.{SettingsActor, Settings}
+import com.github.nscala_time.time.Imports
+import com.github.nscala_time.time.Imports._
+import swe.SettingsActor
 import swe.model.Activity
 import swe.service.BaseService
 
-import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.duration.{Duration => Duration4s, MINUTES, SECONDS}
+import scala.language.postfixOps
 
 object ActivityMaster {
   sealed trait Msg extends BaseService.Msg
@@ -54,11 +56,16 @@ object ActivityMaster {
 
 class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor {
   import ActivityMaster._
+  import context.dispatcher
 
 
   var taskWaitScheduled: List[Activity.Instance] = Nil
   var taskRunning: Map[String, Activity.Instance] = Map.empty
   var taskEnded: Map[String, Activity.Instance] = Map.empty
+
+  context.system.scheduler.schedule(settings.activityCheckInterval, settings.activityCheckInterval, self, "check")
+
+  log.info(s"${settings.defaultHeartBeatTimeout}")
 
   //noinspection ScalaStyle: CyclomaticComplexityChecker
   // scalastyle:off CyclomaticComplexityChecker
@@ -106,7 +113,17 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     case GetTasks =>
       sender ! GetTasks.Response(taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
 
-    case _ =>
+    case "check" =>
+      log.info("check timeout")
+      val now = DateTime.now
+      taskRunning.values.foreach(instance => {
+         if (isInstanceHeartbeatTimeout(instance, now)) {
+          updateActivityStatus(instance.runId, Activity.Status.Timeout.value, Some("heartbeat timeout"))
+        }
+      })
+
+    case x =>
+      log.warning(s"recieve unkonwn msg $x")
   }
   // scalastyle:on CyclomaticComplexityChecker
 
@@ -117,6 +134,26 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
 
       case None =>
         taskWaitScheduled.find(_.runId == runId)
+    }
+  }
+
+  private def isInstanceHeartbeatTimeout(instance: Activity.Instance, now: DateTime):Boolean = {
+    val timeout =  settings.defaultHeartBeatTimeout
+    def isTimeout(time: Imports.DateTime): Boolean = {
+      (time to now).toDuration.getStandardSeconds > timeout.toSeconds
+    }
+
+    instance.lastHeartBeatTimeStamp match {
+      case None =>
+        instance.startTimeStamp match {
+          case None =>
+            log.warning("start timestamp not found")
+            true
+          case Some(time) =>
+            isTimeout(time)
+        }
+      case Some(time) =>
+        isTimeout(time)
     }
   }
 
@@ -169,14 +206,16 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
   }
 
   private def getActivityInstance(msg: PostTask): Activity.Instance = {
-    val heartbeatTimeout = msg.entity.heartbeatTimeout.getOrElse(settings.defaultHeartBeatTimeout).toLong
-    val startToCloseTimeout = msg.entity.heartbeatTimeout.getOrElse(settings.defaultStartToEndTimeout).toLong
+    val heartbeatTimeout = msg.entity.heartbeatTimeout
+      .map(Duration4s(_, SECONDS)).getOrElse(settings.defaultHeartBeatTimeout)
+    val startToCloseTimeout = msg.entity.heartbeatTimeout
+      .map(Duration4s(_, SECONDS)).getOrElse(settings.defaultStartToEndTimeout)
 
     Activity.Instance(runId = getRunId,
       activityType = Activity.Type(msg.entity.name, msg.entity.version),
       createTimeStamp = DateTime.now,
-      heartbeatTimeout = Duration(heartbeatTimeout, SECONDS),
-      startToCloseTimeout = Some(Duration(startToCloseTimeout, SECONDS)),
+      heartbeatTimeout = heartbeatTimeout,
+      startToCloseTimeout = Some(startToCloseTimeout),
       currentStatus = Activity.Status.WaitScheduled.value)
   }
 

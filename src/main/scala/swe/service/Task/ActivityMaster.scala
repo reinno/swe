@@ -2,13 +2,12 @@ package swe.service.Task
 
 import akka.actor.{ActorRef, Props}
 import akka.http.scaladsl.model.StatusCodes
-import com.github.nscala_time.time.Imports
 import com.github.nscala_time.time.Imports._
 import swe.SettingsActor
 import swe.model.Activity
 import swe.service.BaseService
 
-import scala.concurrent.duration.{Duration => Duration4s, MINUTES, SECONDS}
+import scala.concurrent.duration.{Duration => Duration4s, SECONDS}
 import scala.language.postfixOps
 
 object ActivityMaster {
@@ -121,7 +120,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       sender() ! getTask(msg.runId)
 
     case GetTasks =>
-      sender ! GetTasks.Response(taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
+      sender ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled).sortBy(_.createTimeStamp))
 
     case "check" =>
       log.info("check timeout")
@@ -133,7 +132,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       })
 
     case x =>
-      log.warning(s"recieve unkonwn msg $x")
+      log.warning(s"receive unknown msg $x")
   }
   // scalastyle:on CyclomaticComplexityChecker
 
@@ -149,7 +148,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
 
   private def isInstanceHeartbeatTimeout(instance: Activity.Instance, now: DateTime):Boolean = {
     val timeout =  settings.defaultHeartBeatTimeout
-    def isTimeout(time: Imports.DateTime): Boolean = {
+    def isTimeout(time: DateTime): Boolean = {
       (time to now).toDuration.getStandardSeconds > timeout.toSeconds
     }
 

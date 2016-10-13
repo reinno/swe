@@ -13,7 +13,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       val taskMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
       watch(taskMaster)
 
-      val msg = ActivityMaster.PostTask(ActivityMaster.PostTask.Entity("demo", Some("v1.0")))
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity("demo", Some("v1.0")))
       taskMaster ! msg
       apiMaster.expectMsg(ActivityPoller.NewTaskNotify(Activity.Type("demo", Some("v1.0"))))
       expectMsgType[String]
@@ -31,7 +31,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
         var runId: String = ""
 
-        val msg = ActivityMaster.PostTask(ActivityMaster.PostTask.Entity(activityType.name, activityType.version))
+        val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version))
         activityMaster ! msg
         apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
         expectMsgPF() {
@@ -60,7 +60,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       val taskMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
       watch(taskMaster)
 
-      val msg = ActivityMaster.PostTask(ActivityMaster.PostTask.Entity(activityType.name, activityType.version))
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version))
       taskMaster ! msg
       apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
       expectMsgPF() {

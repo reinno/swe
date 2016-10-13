@@ -41,7 +41,7 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
         }
       } ~ pathEndOrSingleSlash {
         post {
-          entity(as[ActivityMaster.PostTask.Entity]) {
+          entity(as[ActivityMaster.PostTaskEntity]) {
             entity => askActorRoute[String](apiMaster, ActivityMaster.PostTask(entity))
           }
         } ~ get {

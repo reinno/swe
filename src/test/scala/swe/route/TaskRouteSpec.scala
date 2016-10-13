@@ -76,8 +76,57 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
           case msg: ActivityMaster.PostTask =>
-            msg.entity shouldBe ActivityMaster.PostTask.Entity("test")
+            msg.entity shouldBe ActivityMaster.PostTaskEntity("test")
             sender ! "1"
+            KeepRunning
+        }
+      }
+    })
+
+    val postRequest = HttpRequest(
+      HttpMethods.POST,
+      uri = "/api/v1/task",
+      entity = HttpEntity(MediaTypes.`application/json`, ByteString("""{"name":"test"}""")))
+
+    postRequest ~> route ~> check {
+      print(response.entity)
+      status shouldBe StatusCodes.OK
+    }
+  }
+
+  it should "handle post task heartbeat success" in {
+
+    apiMasterProbe.setAutoPilot(new AutoPilot {
+      override def run(sender: ActorRef, msg: Any): AutoPilot = {
+        msg match {
+          case msg: ActivityMaster.PostTaskHeartBeat =>
+            msg.entity shouldBe ActivityMaster.PostTaskHeartBeat.Entity(Some("test"))
+            sender ! StatusCodes.OK
+            KeepRunning
+        }
+      }
+    })
+
+    val postRequest = HttpRequest(
+      HttpMethods.POST,
+      uri = "/api/v1/task/1/heartbeat",
+      entity = HttpEntity(MediaTypes.`application/json`,  ByteString("""{"details":"test"}""")))
+
+    postRequest ~> route ~> check {
+      print(response.entity)
+      status shouldBe StatusCodes.OK
+    }
+  }
+
+
+  it should "handle post task status success" in {
+
+    apiMasterProbe.setAutoPilot(new AutoPilot {
+      override def run(sender: ActorRef, msg: Any): AutoPilot = {
+        msg match {
+          case msg: ActivityMaster.PostTaskStatus =>
+            msg.entity shouldBe ActivityMaster.PostTaskStatus.Entity("Complete", Some("test"), Some("1"))
+            sender ! StatusCodes.OK
             KeepRunning
         }
       }
@@ -86,12 +135,14 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     val jsonRequest = ByteString(
       s"""
          |{
-         |    "name":"test"
+         |    "status":"Complete",
+         |    "details":"test",
+         |    "output":"1"
          |}
         """.stripMargin)
     val postRequest = HttpRequest(
       HttpMethods.POST,
-      uri = "/api/v1/task",
+      uri = "/api/v1/task/1/status",
       entity = HttpEntity(MediaTypes.`application/json`, jsonRequest))
 
     postRequest ~> route ~> check {
@@ -99,5 +150,4 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       status shouldBe StatusCodes.OK
     }
   }
-
 }

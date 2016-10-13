@@ -12,7 +12,17 @@ import scala.concurrent.duration.{Duration, SECONDS}
 object ActivityMaster {
   sealed trait Msg extends BaseService.Msg
 
-  case class PostTask(entity: PostTask.Entity) extends Msg
+  case class PostTask(entity: PostTaskEntity) extends Msg
+  /* TODO fixme json4s Can't find constructor for entity in object PostTask
+   * wired it is not happened in some environment */
+  case class PostTaskEntity(name: String, version: Option[String] = None,
+                    report_endpoint: Option[String] = None,
+                    scheduleToStart: Option[Int] = None,
+                    scheduleToClose: Option[Int] = None,
+                    defaultTaskPriority: Int = 0,
+                    heartbeatTimeout: Option[Int] = None,
+                    startToCloseTimeout: Option[Int] = None,
+                    input: Option[String] = None)
   object PostTask {
     case class Entity(name: String, version: Option[String] = None,
                       report_endpoint: Option[String] = None,
@@ -32,7 +42,7 @@ object ActivityMaster {
 
   case class PostTaskStatus(runId: String, entity: PostTaskStatus.Entity) extends Msg
   object PostTaskStatus {
-    case class Entity(closeStatus: String, details: Option[String] = None, output: Option[String] = None)
+    case class Entity(status: String, details: Option[String] = None, output: Option[String] = None)
   }
 
   case class GetTask(runId: String) extends Msg
@@ -41,7 +51,7 @@ object ActivityMaster {
     case class Response(instances: List[Activity.Instance])
   }
 
-  case class PollTasks(entity: PollTasks.Entity)
+  case class PollTasks(entity: PollTasks.Entity) extends Msg
   object PollTasks {
     case class Entity(activityType: Activity.Type, num: Int = 1)
     case class Response(instances: List[Activity.InstanceInput])
@@ -81,7 +91,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     case msg: PostTaskStatus =>
       taskRunning.get(msg.runId) match {
         case Some(_) =>
-          updateActivityStatus(msg.runId, msg.entity.closeStatus, msg.entity.details, msg.entity.output)
+          updateActivityStatus(msg.runId, msg.entity.status, msg.entity.details, msg.entity.output)
           sender ! StatusCodes.OK
 
         case None =>

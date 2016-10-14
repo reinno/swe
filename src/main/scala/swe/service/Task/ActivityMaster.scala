@@ -11,20 +11,24 @@ import scala.concurrent.duration.{Duration => Duration4s, SECONDS}
 import scala.language.postfixOps
 
 object ActivityMaster {
+
   sealed trait Msg extends BaseService.Msg
 
   case class PostTask(entity: PostTaskEntity) extends Msg
+
   /* TODO fixme json4s Can't find constructor for entity in object PostTask
    * wired it is not happened in some environment */
   case class PostTaskEntity(name: String, version: Option[String] = None,
-                    report_endpoint: Option[String] = None,
-                    scheduleToStart: Option[Int] = None,
-                    scheduleToClose: Option[Int] = None,
-                    defaultTaskPriority: Int = 0,
-                    heartbeatTimeout: Option[Int] = None,
-                    startToCloseTimeout: Option[Int] = None,
-                    input: Option[String] = None)
+                            report_endpoint: Option[String] = None,
+                            scheduleToStart: Option[Int] = None,
+                            scheduleToClose: Option[Int] = None,
+                            defaultTaskPriority: Int = 0,
+                            heartbeatTimeout: Option[Int] = None,
+                            startToCloseTimeout: Option[Int] = None,
+                            input: Option[String] = None)
+
   object PostTask {
+
     case class Entity(name: String, version: Option[String] = None,
                       report_endpoint: Option[String] = None,
                       scheduleToStart: Option[Int] = None,
@@ -33,29 +37,43 @@ object ActivityMaster {
                       heartbeatTimeout: Option[Int] = None,
                       startToCloseTimeout: Option[Int] = None,
                       input: Option[String] = None)
+
   }
+
   case class DeleteTask(taskId: String) extends Msg
 
   case class PostTaskHeartBeat(runId: String, entity: PostTaskHeartBeat.Entity) extends Msg
+
   object PostTaskHeartBeat {
+
     case class Entity(details: Option[String] = None)
+
   }
 
   case class PostTaskStatus(runId: String, entity: PostTaskStatus.Entity) extends Msg
+
   object PostTaskStatus {
+
     case class Entity(status: String, details: Option[String] = None, output: Option[String] = None)
+
   }
 
   case class GetTask(runId: String) extends Msg
 
   case object GetTasks extends Msg {
+
     case class Response(instances: List[Activity.Instance])
+
   }
 
   case class PollTasks(entity: PollTasks.Entity) extends Msg
+
   object PollTasks {
+
     case class Entity(activityType: Activity.Type, num: Int = 1)
+
     case class Response(instances: List[Activity.InstanceInput])
+
   }
 
   def props(apiMaster: ActorRef): Props = Props(new ActivityMaster(apiMaster))
@@ -64,6 +82,7 @@ object ActivityMaster {
 }
 
 class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor {
+
   import ActivityMaster._
   import context.dispatcher
 
@@ -126,7 +145,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       log.info("check timeout")
       val now = DateTime.now
       taskRunning.values.foreach(instance => {
-         if (isInstanceHeartbeatTimeout(instance, now)) {
+        if (isInstanceHeartbeatTimeout(instance, now)) {
           updateActivityStatus(instance.runId, Activity.Status.Timeout.value, Some("heartbeat timeout"))
         }
       })
@@ -134,6 +153,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     case x =>
       log.warning(s"receive unknown msg $x")
   }
+
   // scalastyle:on CyclomaticComplexityChecker
 
   private def getTask(runId: String): Option[Activity.Instance] = {
@@ -146,8 +166,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     }
   }
 
-  private def isInstanceHeartbeatTimeout(instance: Activity.Instance, now: DateTime):Boolean = {
-    val timeout =  settings.defaultHeartBeatTimeout
+  private def isInstanceHeartbeatTimeout(instance: Activity.Instance, now: DateTime): Boolean = {
+    val timeout = settings.defaultHeartBeatTimeout
     def isTimeout(time: DateTime): Boolean = {
       (time to now).toDuration.getStandardSeconds > timeout.toSeconds
     }
@@ -195,8 +215,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
             closeTimeStamp = Some(DateTime.now),
             history = activity.history :+ Activity.Event(DateTime.now, status, details)))
         } else {
-            taskRunning = taskRunning.updated(runId, activity.copy(currentStatus = status,
-              history = activity.history :+ Activity.Event(DateTime.now, status,details)))
+          taskRunning = taskRunning.updated(runId, activity.copy(currentStatus = status,
+            history = activity.history :+ Activity.Event(DateTime.now, status, details)))
         }
 
       case None =>
@@ -225,7 +245,9 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       createTimeStamp = DateTime.now,
       heartbeatTimeout = heartbeatTimeout,
       startToCloseTimeout = Some(startToCloseTimeout),
-      currentStatus = Activity.Status.WaitScheduled.value)
+      currentStatus = Activity.Status.WaitScheduled.value,
+      input = msg.entity.input,
+      priority = msg.entity.defaultTaskPriority)
   }
 
   private def popWaitScheduledActivities(param: PollTasks.Entity,

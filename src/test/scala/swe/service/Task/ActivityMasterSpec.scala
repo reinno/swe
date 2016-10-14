@@ -15,10 +15,11 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
     var runId: String = ""
 
-    def preProc(activityType: Activity.Type, apiMaster: TestProbe): ActorRef = {
+
+    def preProc(activityType: Activity.Type, apiMaster: TestProbe, input: Option[String] = None): ActorRef = {
       val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
       watch(activityMaster)
-      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version))
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version, input = input))
       activityMaster ! msg
       apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
       expectMsgPF() {
@@ -176,6 +177,25 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
           msg.instances.size shouldBe 2
           msg.instances.head.runId shouldBe runId
           msg.instances.drop(1).head.runId shouldBe runId2
+      }
+
+      postProc(activityMaster)
+    }
+
+    "record input" in {
+      val activityType = Activity.Type("demo", Some("v1.0"))
+      val input = "demo input"
+      val apiMaster = TestProbe()
+      val activityMaster: ActorRef =
+        preProc(activityType, apiMaster, Some(input))
+
+      activityMaster ! ActivityMaster.GetTask(runId)
+      expectMsgPF() {
+        case Some(msg: Instance) =>
+          msg.runId shouldBe runId
+          msg.activityType shouldBe activityType
+          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
+          msg.input shouldBe Some(input)
       }
 
       postProc(activityMaster)

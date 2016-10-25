@@ -119,6 +119,30 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
   }
 
 
+  it should "handle post task heartbeat without entity success" in {
+
+    apiMasterProbe.setAutoPilot(new AutoPilot {
+      override def run(sender: ActorRef, msg: Any): AutoPilot = {
+        msg match {
+          case msg: ActivityMaster.PostTaskHeartBeat =>
+            msg.entity shouldBe ActivityMaster.PostTaskHeartBeat.Entity(None)
+            sender ! StatusCodes.OK
+            KeepRunning
+        }
+      }
+    })
+
+    val postRequest = HttpRequest(
+      HttpMethods.POST,
+      uri = "/api/v1/task/1/heartbeat")
+
+    postRequest ~> route ~> check {
+      print(response.entity)
+      status shouldBe StatusCodes.OK
+    }
+  }
+
+
   it should "handle post task status success" in {
 
     apiMasterProbe.setAutoPilot(new AutoPilot {

@@ -139,7 +139,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       sender() ! getTask(msg.runId)
 
     case GetTasks =>
-      sender ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled).sortBy(_.createTimeStamp))
+      sender ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
+        .sortBy(_.createTimeStamp).reverse)
 
     case "check" =>
       log.info("check timeout")

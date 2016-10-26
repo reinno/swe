@@ -154,7 +154,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       postProc(activityMaster)
     }
 
-    "get task is sorted" in {
+    "get task is sorted in reversed order" in {
       val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
@@ -175,8 +175,8 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       expectMsgPF() {
         case msg: ActivityMaster.GetTasks.Response =>
           msg.instances.size shouldBe 2
-          msg.instances.head.runId shouldBe runId
-          msg.instances.drop(1).head.runId shouldBe runId2
+          msg.instances.head.runId shouldBe runId2
+          msg.instances.drop(1).head.runId shouldBe runId
       }
 
       postProc(activityMaster)

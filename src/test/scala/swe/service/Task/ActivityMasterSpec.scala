@@ -200,5 +200,49 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       postProc(activityMaster)
     }
+
+
+    "activity complete" in {
+      val activityType = Activity.Type("demo", Some("v1.0"))
+      val apiMaster = TestProbe()
+      val activityMaster: ActorRef =
+        preProc(activityType, apiMaster)
+
+      activityMaster ! ActivityMaster.GetTask(runId)
+      expectMsgPF() {
+        case Some(msg: Instance) =>
+          msg.runId shouldBe runId
+          msg.activityType shouldBe activityType
+          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
+      }
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType))
+      expectMsgPF() {
+        case msg: Response =>
+          msg.instances.size shouldEqual 1
+          msg.instances.head.activityType shouldBe activityType
+          msg.instances.head.runId shouldBe runId
+      }
+
+      val status = Activity.Status.Complete.value
+      activityMaster ! ActivityMaster.PostTaskStatus(runId, ActivityMaster.PostTaskStatus.Entity(status))
+      expectMsg(StatusCodes.OK)
+
+      activityMaster ! ActivityMaster.GetTasks
+      expectMsgPF() {
+        case msg: ActivityMaster.GetTasks.Response =>
+          msg.instances.size shouldBe 1
+      }
+
+      activityMaster ! ActivityMaster.GetTask(runId)
+      expectMsgPF() {
+        case Some(msg: Instance) =>
+          msg.runId shouldBe runId
+          msg.activityType shouldBe activityType
+          msg.currentStatus shouldBe status
+          msg.closeStatus shouldBe Some(status)
+      }
+      postProc(activityMaster)
+    }
   }
 }

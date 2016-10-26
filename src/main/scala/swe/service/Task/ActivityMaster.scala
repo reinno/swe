@@ -143,7 +143,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
         .sortBy(_.createTimeStamp).reverse)
 
     case "check" =>
-      log.info("check timeout")
+      //log.info("check timeout")
       val now = DateTime.now
       taskRunning.values.foreach(instance => {
         if (isInstanceHeartbeatTimeout(instance, now)) {
@@ -215,6 +215,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
             closeStatus = Some(status),
             closeTimeStamp = Some(DateTime.now),
             history = activity.history :+ Activity.Event(DateTime.now, status, details)))
+          taskRunning -= runId
         } else {
           taskRunning = taskRunning.updated(runId, activity.copy(currentStatus = status,
             history = activity.history :+ Activity.Event(DateTime.now, status, details)))

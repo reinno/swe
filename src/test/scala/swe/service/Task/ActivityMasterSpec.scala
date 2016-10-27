@@ -6,6 +6,7 @@ import akka.testkit.TestProbe
 import swe.model.Activity
 import swe.model.Activity.Instance
 import swe.service.BaseServiceHelper
+import swe.service.Task.ActivityMaster.GetTasks
 import swe.service.Task.ActivityMaster.PollTasks.Response
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -14,7 +15,6 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
   "activity master" must {
 
     var runId: String = ""
-
 
     def preProc(activityType: Activity.Type, apiMaster: TestProbe, input: Option[String] = None): ActorRef = {
       val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
@@ -36,8 +36,21 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       runId = ""
     }
 
+    def checkActivityStatus(activityMaster: ActorRef, runId: String, activityType: Activity.Type,
+                            currentStatus: String, closeStatus: Option[String]): Unit = {
+      activityMaster ! ActivityMaster.GetTask(runId)
+      expectMsgPF() {
+        case Some(msg: Instance) =>
+          msg.runId shouldBe runId
+          msg.activityType shouldBe activityType
+          msg.currentStatus shouldBe currentStatus
+          msg.closeStatus shouldBe closeStatus
+      }
+    }
+
+    val defaultActivityType = Activity.Type("demo", Some("v1.0"))
     "post activity trigger notify" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
+      val activityType = defaultActivityType
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
         preProc(activityType, apiMaster)
@@ -46,17 +59,16 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
     }
 
     "poll activity success" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
-      for (x <- List(activityType, Activity.Type("demo", None))) {
+      for (x <- List(defaultActivityType, Activity.Type("demo", None))) {
         val activityMaster: ActorRef =
-          preProc(activityType, apiMaster)
+          preProc(defaultActivityType, apiMaster)
 
         activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(x))
         expectMsgPF() {
           case msg: Response =>
             msg.instances.size shouldEqual 1
-            msg.instances.head.activityType shouldBe activityType
+            msg.instances.head.activityType shouldBe defaultActivityType
             msg.instances.head.runId shouldBe runId
         }
 
@@ -65,76 +77,56 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
     }
 
     "get wait scheduled tasks success" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
-        preProc(activityType, apiMaster)
+        preProc(defaultActivityType, apiMaster)
 
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
-      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
 
       postProc(activityMaster)
     }
 
     "heartbeat timeout trigger activity failure" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
-        preProc(activityType, apiMaster)
+        preProc(defaultActivityType, apiMaster)
 
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
-      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
 
-      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType))
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
       expectMsgPF() {
         case msg: Response =>
           msg.instances.size shouldEqual 1
-          msg.instances.head.activityType shouldBe activityType
+          msg.instances.head.activityType shouldBe defaultActivityType
           msg.instances.head.runId shouldBe runId
       }
 
       expectNoMsg(12 seconds)
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe Activity.Status.Timeout.value
-          msg.closeStatus shouldBe Some(Activity.Status.Timeout.value)
-      }
+
+      val status = Activity.Status.Timeout.value
+      checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
 
       postProc(activityMaster)
     }
 
     "post heartbeat" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
-        preProc(activityType, apiMaster)
+        preProc(defaultActivityType, apiMaster)
 
       activityMaster ! ActivityMaster.GetTask(runId)
       expectMsgPF() {
         case Some(msg: Instance) =>
           msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
+          msg.activityType shouldBe defaultActivityType
           msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
       }
 
-      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType))
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
       expectMsgPF() {
         case msg: Response =>
           msg.instances.size shouldEqual 1
-          msg.instances.head.activityType shouldBe activityType
+          msg.instances.head.activityType shouldBe defaultActivityType
           msg.instances.head.runId shouldBe runId
       }
 
@@ -143,33 +135,23 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       expectMsg(StatusCodes.OK)
       expectNoMsg(4 seconds)
 
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe Activity.Status.Running.value
-          msg.closeStatus shouldBe None
-      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Running.value, None)
       postProc(activityMaster)
     }
 
     "get task is sorted in reversed order" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
-        preProc(activityType, apiMaster)
+        preProc(defaultActivityType, apiMaster)
 
       var runId2 = ""
-      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity("aaa", activityType.version))
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity("aaa", defaultActivityType.version))
       activityMaster ! msg
       apiMaster.expectMsgType[ActivityPoller.NewTaskNotify]
       expectMsgPF() {
         case msg: String =>
           runId2 = msg
       }
-      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(Activity.Type("aaa", None)))
-      expectMsgType[ActivityMaster.PollTasks.Response]
 
       activityMaster ! ActivityMaster.GetTasks
       expectMsgPF() {
@@ -183,44 +165,30 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
     }
 
     "record input" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val input = "demo input"
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
-        preProc(activityType, apiMaster, Some(input))
+        preProc(defaultActivityType, apiMaster, Some(input))
 
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
-          msg.input shouldBe Some(input)
-      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
 
       postProc(activityMaster)
     }
 
 
     "activity complete" in {
-      val activityType = Activity.Type("demo", Some("v1.0"))
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =
-        preProc(activityType, apiMaster)
+        preProc(defaultActivityType, apiMaster)
 
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe Activity.Status.WaitScheduled.value
-      }
 
-      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType))
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
       expectMsgPF() {
         case msg: Response =>
           msg.instances.size shouldEqual 1
-          msg.instances.head.activityType shouldBe activityType
+          msg.instances.head.activityType shouldBe defaultActivityType
           msg.instances.head.runId shouldBe runId
       }
 
@@ -230,18 +198,11 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       activityMaster ! ActivityMaster.GetTasks
       expectMsgPF() {
-        case msg: ActivityMaster.GetTasks.Response =>
+        case msg: GetTasks.Response =>
           msg.instances.size shouldBe 1
       }
 
-      activityMaster ! ActivityMaster.GetTask(runId)
-      expectMsgPF() {
-        case Some(msg: Instance) =>
-          msg.runId shouldBe runId
-          msg.activityType shouldBe activityType
-          msg.currentStatus shouldBe status
-          msg.closeStatus shouldBe Some(status)
-      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
       postProc(activityMaster)
     }
   }

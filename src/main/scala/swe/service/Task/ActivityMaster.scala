@@ -168,7 +168,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
   }
 
   private def isInstanceHeartbeatTimeout(instance: Activity.Instance, now: DateTime): Boolean = {
-    val timeout = settings.defaultHeartBeatTimeout
+    val timeout = instance.heartbeatTimeout + settings.defaultHeartBeatTimeoutCheckAppend
     def isTimeout(time: DateTime): Boolean = {
       (time to now).toDuration.getStandardSeconds > timeout.toSeconds
     }

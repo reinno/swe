@@ -6,8 +6,9 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import swe.model.Activity
 import swe.route.ApiRouteService
-import swe.service.{ApiMaster, HttpClientService, HttpClientSingle}
+import swe.service.{DbService, ApiMaster, HttpClientService, HttpClientSingle}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -25,6 +26,8 @@ object Boot extends App {
 
 
   val service = new ApiRouteService(apiMaster)
+
+  DbService.init(List(Activity.Instance.InstancesDao))
 
 
   val bindFuture = Http().bindAndHandle(Route.handlerFlow(service.route),

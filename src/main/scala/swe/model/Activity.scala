@@ -1,7 +1,9 @@
 package swe.model
 
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration.SECONDS
 import com.github.nscala_time.time.Imports.DateTime
+import slick.driver.H2Driver.api._
 
 object Activity {
 
@@ -102,5 +104,80 @@ object Activity {
                       currentStatus: String,
                       closeStatus: Option[String] = None,
                       cancelRequested: Boolean = false)
+  object Instance {
+    def apply(plainData: PlainData): Instance = {
+      Instance(plainData.activityId, plainData.runId, Activity.Type(plainData.activityName, plainData.activityVersion),
+        None, None, None, None, plainData.priority,
+        Duration(plainData.heartbeatTimeoutSecs, SECONDS), plainData.startToCloseTimeoutSecs.map(Duration(_, SECONDS)),
+        Nil, plainData.input, plainData.output,
+        DateTime.parse(plainData.createTimeStamp), plainData.startTimeStamp.map(DateTime.parse),
+        plainData.lastHeartBeatTimeStamp.map(DateTime.parse), plainData.closeTimeStamp.map(DateTime.parse),
+        plainData.currentStatus, plainData.closeStatus, plainData.cancelRequested)
+    }
+
+    case class PlainData(activityId: Option[String], runId: String,
+                         activityName: String, activityVersion: Option[String],
+                         priority: Int,
+                         heartbeatTimeoutSecs: Int, startToCloseTimeoutSecs: Option[Int],
+                         input: Option[String], output: Option[String],
+                         createTimeStamp: String, startTimeStamp: Option[String],
+                         lastHeartBeatTimeStamp: Option[String], closeTimeStamp: Option[String],
+                         currentStatus: String, closeStatus: Option[String], cancelRequested: Boolean) {
+      def apply(instance: Instance): PlainData = {
+        PlainData(instance.activityId, instance.runId,
+          instance.activityType.name, instance.activityType.version,
+          instance.priority,
+          instance.heartbeatTimeout.toSeconds.toInt, instance.startToCloseTimeout.map(_.toSeconds.toInt),
+          instance.input, instance.output,
+          instance.createTimeStamp.toString(), instance.startTimeStamp.map(_.toString()),
+          instance.lastHeartBeatTimeStamp.map(_.toString()), instance.closeTimeStamp.map(_.toString()),
+          instance.currentStatus, instance.closeStatus, instance.cancelRequested)
+      }
+    }
+
+    object InstancesDao extends BaseDao {
+      val tableName: String = "ACTIVITY_INSTANCES"
+
+      class Instances(tag: Tag) extends Table[PlainData](tag, "ACTIVITY_INSTANCES") {
+        def activityId = column[String]("ID")
+        def runId = column[String]("RUN_ID", O.PrimaryKey)
+        def activityName = column[String]("NAME")
+        def activityVersion = column[String]("VERSION")
+        def priority = column[Int]("PRIORITY")
+        def heartbeatTimeoutSec = column[Int]("HEARTBEAT_TIMEOUT_SECS")
+        def startToCloseTimeoutSec = column[Int]("START_TO_CLOSE_TIMEOUT_SECS")
+        def input = column[String]("INPUT")
+        def output = column[String]("OUTPUT")
+        def createTimeStamp = column[String]("CREATE_TIMESTAMP")
+        def startTimeStamp = column[String]("START_TIMESTAMP")
+        def lastHeartBeatTimeStamp = column[String]("LAST_HEARTBEAT_TIMESTAMP")
+        def closeTimeStamp = column[String]("CLOSE_TIMESTAMP")
+        def currentStatus = column[String]("CURRENT_STATUS")
+        def closeStatus = column[String]("CLOSE_STATUS")
+        def cancelRequested = column[Boolean]("CANCEL_REQUESTED")
+
+        // Every table needs a * projection with the same type as the table's type parameter
+        def * = (activityId.?, runId, activityName, activityVersion.?, priority,
+          heartbeatTimeoutSec, startToCloseTimeoutSec.?, input.?, output.?,
+          createTimeStamp, startTimeStamp.?, lastHeartBeatTimeStamp.?, closeTimeStamp.?,
+          currentStatus, closeStatus.?, cancelRequested) <> (PlainData.tupled, PlainData.unapply)
+      }
+
+      val query = TableQuery[Instances]
+
+      val findByRunId = query.findBy(_.runId)
+
+      def setup() = DBIO.seq (
+        query.schema.create
+      )
+
+      val destroy = DBIO.seq (
+        query.schema.drop
+      )
+    }
+
+  }
+
+
 
 }

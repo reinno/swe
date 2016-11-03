@@ -36,6 +36,9 @@ libraryDependencies ++= {
     "org.json4s"          %% "json4s-ext"               % json4sV,
     "de.heikoseeberger"   %% "akka-http-json4s"         % "1.10.0",
 
+    "com.typesafe.slick"  %% "slick"                    % "3.1.1",
+    //"org.slf4j"           %  "slf4j-nop"                % "1.6.4",
+
     "org.iq80.leveldb"    %  "leveldb"                  % "0.7",
     "org.fusesource.leveldbjni" % "leveldbjni-all"      % "1.8",
     "org.scalatest"       %% "scalatest"                % "2.2.1"  % "test",

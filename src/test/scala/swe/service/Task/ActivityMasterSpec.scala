@@ -101,10 +101,34 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
           msg.instances.head.runId shouldBe runId
       }
 
-      expectNoMsg(12 seconds)
+      //default timeout = 5s + 1s + 2s
+      expectNoMsg(10 seconds)
 
-      val status = Activity.Status.Timeout.value
-      checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
+      val timeoutStatus = Activity.Status.Timeout.value
+      checkActivityStatus(activityMaster, runId, defaultActivityType, timeoutStatus, Some(timeoutStatus))
+
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(defaultActivityType.name,
+        defaultActivityType.version, heartbeatTimeout = Some(12)))
+      activityMaster ! msg
+      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(defaultActivityType))
+      expectMsgPF() {
+        case msg: String =>
+          runId = msg
+      }
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
+      expectMsgPF() {
+        case msg: Response =>
+          msg.instances.size shouldEqual 1
+          msg.instances.head.activityType shouldBe defaultActivityType
+          msg.instances.head.runId shouldBe runId
+      }
+
+      expectNoMsg(10 seconds)
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Initialize.value, None)
+
+      expectNoMsg(6 seconds)
+      checkActivityStatus(activityMaster, runId, defaultActivityType, timeoutStatus, Some(timeoutStatus))
 
       postProc(activityMaster)
     }

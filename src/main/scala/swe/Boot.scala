@@ -27,8 +27,9 @@ object Boot extends App {
 
   val service = new ApiRouteService(apiMaster)
 
-  DbService.init(List(Activity.Instance.InstancesDao))
-
+  val dbFuture = DbService.init(List(Activity.Instance.InstancesDao))
+  Await.result(dbFuture, 15 seconds)
+  println(dbFuture.value)
 
   val bindFuture = Http().bindAndHandle(Route.handlerFlow(service.route),
     settings.bindAddr, settings.bindPort)

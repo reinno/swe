@@ -37,6 +37,8 @@ libraryDependencies ++= {
     "de.heikoseeberger"   %% "akka-http-json4s"         % "1.10.0",
 
     "com.typesafe.slick"  %% "slick"                    % "3.1.1",
+    "com.typesafe.slick"  %% "slick-hikaricp"           % "3.1.1",
+    "mysql"               %  "mysql-connector-java"     % "5.1.40",
     //"org.slf4j"           %  "slf4j-nop"                % "1.6.4",
 
     "org.iq80.leveldb"    %  "leveldb"                  % "0.7",

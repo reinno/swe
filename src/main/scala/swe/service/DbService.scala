@@ -1,6 +1,9 @@
 package swe.service
 
-import slick.driver.H2Driver.api._
+//import slick.driver.H2Driver.api._
+import slick.backend.DatabaseConfig
+import slick.driver.MySQLDriver.api._
+import slick.driver.MySQLDriver
 import slick.jdbc.meta.MTable
 import swe.model.BaseDao
 
@@ -12,7 +15,9 @@ object DbService {
 
   //val db = Database.forConfig("postgres")
   //val dbConfig: DatabaseConfig[PostgresDriver] = DatabaseConfig.forConfig("h2mem1")
-  val db = Database.forConfig("h2mem1")
+  //val db = Database.forConfig("db.default")
+  val dbConfig: DatabaseConfig[MySQLDriver] = DatabaseConfig.forConfig("db.default")
+  val db = dbConfig.db
 
   def isTableExist(tableName: String): Future[Boolean] = {
     db.run(MTable.getTables(tableName)).map(_.nonEmpty)

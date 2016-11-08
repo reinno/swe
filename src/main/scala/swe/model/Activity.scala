@@ -3,7 +3,8 @@ package swe.model
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.SECONDS
 import com.github.nscala_time.time.Imports.DateTime
-import slick.driver.H2Driver.api._
+//import slick.driver.H2Driver.api._
+import slick.driver.MySQLDriver.api._
 
 object Activity {
 
@@ -115,14 +116,14 @@ object Activity {
         plainData.currentStatus, plainData.closeStatus, plainData.cancelRequested)
     }
 
-    case class PlainData(activityId: Option[String], runId: String,
-                         activityName: String, activityVersion: Option[String],
+    case class PlainData(activityId: Option[String] = None, runId: String,
+                         activityName: String, activityVersion: Option[String] = None,
                          priority: Int,
                          heartbeatTimeoutSecs: Int, startToCloseTimeoutSecs: Option[Int],
-                         input: Option[String], output: Option[String],
-                         createTimeStamp: String, startTimeStamp: Option[String],
-                         lastHeartBeatTimeStamp: Option[String], closeTimeStamp: Option[String],
-                         currentStatus: String, closeStatus: Option[String], cancelRequested: Boolean) {
+                         input: Option[String] = None, output: Option[String] = None,
+                         createTimeStamp: String, startTimeStamp: Option[String] = None,
+                         lastHeartBeatTimeStamp: Option[String] = None, closeTimeStamp: Option[String] = None,
+                         currentStatus: String, closeStatus: Option[String] = None, cancelRequested: Boolean) {
       def apply(instance: Instance): PlainData = {
         PlainData(instance.activityId, instance.runId,
           instance.activityType.name, instance.activityType.version,
@@ -139,7 +140,7 @@ object Activity {
       val tableName: String = "ACTIVITY_INSTANCES"
 
       class Instances(tag: Tag) extends Table[PlainData](tag, "ACTIVITY_INSTANCES") {
-        def activityId = column[String]("ID")
+        def activityId = column[String]("ACTIVITY_ID")
         def runId = column[String]("RUN_ID", O.PrimaryKey)
         def activityName = column[String]("NAME")
         def activityVersion = column[String]("VERSION")
@@ -168,7 +169,8 @@ object Activity {
       val findByRunId = query.findBy(_.runId)
 
       def setup() = DBIO.seq (
-        query.schema.create
+        query.schema.create,
+        query += PlainData(None, "0", "demo", None, 0, 10, None, None, None, "1984", None, None, None, "Running", None, false)
       )
 
       val destroy = DBIO.seq (

@@ -3,6 +3,7 @@ package swe.service.Task
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.TestProbe
+import swe.SettingsActor
 import swe.model.Activity
 import swe.model.Activity.Instance
 import swe.service.BaseServiceHelper
@@ -227,6 +228,47 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       }
 
       checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
+      postProc(activityMaster)
+    }
+
+    "max ended number" in {
+      val apiMaster = TestProbe()
+      var runIdList: List[String] = Nil
+      val activityMaxEndedStoreSize = system.settings.config.getInt("swe.activity.maxEndedStoreNum")
+      val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
+      watch(activityMaster)
+
+      for (i <- 1 to activityMaxEndedStoreSize + 1) {
+        activityMaster ! ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(defaultActivityType.name, defaultActivityType.version))
+        apiMaster.expectMsg(ActivityPoller.NewTaskNotify(defaultActivityType))
+        expectMsgPF() {
+          case msg: String =>
+            runId = msg
+            runIdList :+= runId
+        }
+        checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
+
+        activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
+        expectMsgType[Response]
+
+        val status = Activity.Status.Complete.value
+        activityMaster ! ActivityMaster.PostTaskStatus(runId, ActivityMaster.PostTaskStatus.Entity(status))
+        expectMsg(StatusCodes.OK)
+        checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
+
+        activityMaster ! ActivityMaster.GetTasks
+        expectMsgPF() {
+          case msg: GetTasks.Response =>
+            if (i <= activityMaxEndedStoreSize) {
+              msg.instances.size shouldBe i
+            } else {
+              msg.instances.find(_.runId == runIdList.head) shouldBe None
+              msg.instances.size shouldBe activityMaxEndedStoreSize
+            }
+
+        }
+      }
+
       postProc(activityMaster)
     }
   }

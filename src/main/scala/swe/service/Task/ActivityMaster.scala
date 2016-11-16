@@ -5,8 +5,10 @@ import akka.http.scaladsl.model.StatusCodes
 import com.github.nscala_time.time.Imports._
 import swe.SettingsActor
 import swe.model.Activity
+import swe.model.Activity.Instance
 import swe.service.BaseService
 
+import scala.collection.mutable
 import scala.concurrent.duration.{Duration => Duration4s, SECONDS}
 import scala.language.postfixOps
 
@@ -89,7 +91,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
 
   var taskWaitScheduled: List[Activity.Instance] = Nil
   var taskRunning: Map[String, Activity.Instance] = Map.empty
-  var taskEnded: Map[String, Activity.Instance] = Map.empty
+  val taskEnded: mutable.Map[String, Instance] =
+    scala.collection.mutable.LinkedHashMap.empty
 
   context.system.scheduler.schedule(settings.activityCheckInterval, settings.activityCheckInterval, self, "check")
 
@@ -210,11 +213,14 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     taskRunning.get(runId) match {
       case Some(activity) =>
         if (isEndedStatus(status)) {
-          taskEnded = taskEnded.updated(runId, activity.copy(currentStatus = status,
+          taskEnded.update(runId, activity.copy(currentStatus = status,
             output = output,
             closeStatus = Some(status),
             closeTimeStamp = Some(DateTime.now),
             history = activity.history :+ Activity.Event(DateTime.now, status, details)))
+          if (taskEnded.size > settings.activityMaxEndedStoreSize) {
+            taskEnded.remove(taskEnded.head._1)
+          }
           taskRunning -= runId
         } else {
           taskRunning = taskRunning.updated(runId, activity.copy(currentStatus = status,

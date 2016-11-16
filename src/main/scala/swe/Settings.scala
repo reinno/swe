@@ -14,6 +14,9 @@ class Settings(system: ExtendedActorSystem) extends Extension {
     Duration(system.settings.config.getDuration("swe.activity.defaultStartToEndTimeout", SECONDS), SECONDS)
   val activityCheckInterval =
     Duration(system.settings.config.getDuration("swe.activity.checkInterval", SECONDS), SECONDS)
+  val activityMaxEndedStoreSize = system.settings.config.getInt("swe.activity.maxEndedStoreNum")
+  val activityMaxEventNum = system.settings.config.getInt("swe.activity.maxEventNum")
+
 
   val bindAddr = system.settings.config.getString("swe.server.addr")
   val bindPort = system.settings.config.getInt("swe.server.port")

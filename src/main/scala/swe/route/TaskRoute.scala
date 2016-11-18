@@ -23,6 +23,9 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
             post {
               entity(as[ActivityMaster.PostTaskHeartBeat.Entity]) {
                 entity => askActorRoute[StatusCode](apiMaster, ActivityMaster.PostTaskHeartBeat(runId, entity))
+              } ~ {
+                askActorRoute[StatusCode](apiMaster,
+                  ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity()))
               }
             }
           } ~ path("status") {
@@ -41,7 +44,7 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
         }
       } ~ pathEndOrSingleSlash {
         post {
-          entity(as[ActivityMaster.PostTask.Entity]) {
+          entity(as[ActivityMaster.PostTaskEntity]) {
             entity => askActorRoute[String](apiMaster, ActivityMaster.PostTask(entity))
           }
         } ~ get {

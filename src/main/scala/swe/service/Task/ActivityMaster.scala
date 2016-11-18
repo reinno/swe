@@ -212,19 +212,26 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
                                    output: Option[String] = None): Unit = {
     taskRunning.get(runId) match {
       case Some(activity) =>
+        var history = activity.history :+ Activity.Event(DateTime.now, status, details)
+        if (history.size > settings.activityMaxEventNum) {
+          log.warning(s"drop head element ${history.head}")
+          history = history.drop(1)
+        }
+
         if (isEndedStatus(status)) {
           taskEnded.update(runId, activity.copy(currentStatus = status,
             output = output,
             closeStatus = Some(status),
             closeTimeStamp = Some(DateTime.now),
-            history = activity.history :+ Activity.Event(DateTime.now, status, details)))
+            history = history))
           if (taskEnded.size > settings.activityMaxEndedStoreSize) {
+            log.warning(s"drop head element ${taskEnded.head}")
             taskEnded.remove(taskEnded.head._1)
           }
           taskRunning -= runId
         } else {
           taskRunning = taskRunning.updated(runId, activity.copy(currentStatus = status,
-            history = activity.history :+ Activity.Event(DateTime.now, status, details)))
+            history = history))
         }
 
       case None =>

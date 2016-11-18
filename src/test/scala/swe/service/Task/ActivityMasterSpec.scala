@@ -7,7 +7,7 @@ import swe.SettingsActor
 import swe.model.Activity
 import swe.model.Activity.Instance
 import swe.service.BaseServiceHelper
-import swe.service.Task.ActivityMaster.GetTasks
+import swe.service.Task.ActivityMaster.{GetTask, GetTasks}
 import swe.service.Task.ActivityMaster.PollTasks.Response
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -265,9 +265,54 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
               msg.instances.find(_.runId == runIdList.head) shouldBe None
               msg.instances.size shouldBe activityMaxEndedStoreSize
             }
-
         }
       }
+
+      postProc(activityMaster)
+    }
+
+
+    "max event stored num" in {
+      val apiMaster = TestProbe()
+      val activityMaxEventStoreSize = system.settings.config.getInt("swe.activity.maxEventNum")
+      val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
+      watch(activityMaster)
+
+      activityMaster ! ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(defaultActivityType.name, defaultActivityType.version))
+      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(defaultActivityType))
+      expectMsgPF() {
+        case msg: String =>
+          runId = msg
+      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
+
+      for (i <- 1 to activityMaxEventStoreSize + 1) {
+        activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
+        expectMsgType[Response]
+
+        val status = Activity.Status.Running.value
+        activityMaster ! ActivityMaster.PostTaskStatus(runId, ActivityMaster.PostTaskStatus.Entity(status))
+        expectMsg(StatusCodes.OK)
+        checkActivityStatus(activityMaster, runId, defaultActivityType, status, None)
+
+        activityMaster ! ActivityMaster.GetTask(runId)
+        expectMsgPF() {
+          case msg: Some[Activity.Instance] =>
+            msg.get.history.size shouldBe math.min(i, activityMaxEventStoreSize)
+        }
+      }
+
+      val status = Activity.Status.Complete.value
+      activityMaster ! ActivityMaster.PostTaskStatus(runId, ActivityMaster.PostTaskStatus.Entity(status))
+      expectMsg(StatusCodes.OK)
+
+      activityMaster ! ActivityMaster.GetTask(runId)
+      expectMsgPF() {
+        case msg: Some[Activity.Instance] =>
+          msg.get.history.size shouldBe activityMaxEventStoreSize
+          msg.get.history.last.status shouldBe status
+      }
+      checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
 
       postProc(activityMaster)
     }

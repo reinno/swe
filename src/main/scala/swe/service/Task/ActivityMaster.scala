@@ -62,6 +62,7 @@ object ActivityMaster {
 
   case class GetTask(runId: String) extends Msg
 
+  case class GetTasks(curPage: Int, perPageNum: Int)
   case object GetTasks extends Msg {
 
     case class Response(instances: List[Activity.Instance])
@@ -140,6 +141,10 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
 
     case msg: GetTask =>
       sender() ! getTask(msg.runId)
+
+    case GetTasks(curPage, perPageNum) =>
+      sender() ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
+        .sortBy(_.createTimeStamp).reverse.slice((curPage - 1) * perPageNum, curPage * perPageNum))
 
     case GetTasks =>
       sender ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)

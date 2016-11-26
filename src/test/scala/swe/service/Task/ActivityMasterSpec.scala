@@ -5,10 +5,10 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.TestProbe
 import swe.SettingsActor
 import swe.model.Activity
-import swe.model.Activity.Instance
+import swe.model.Activity.{Type, Instance}
 import swe.service.BaseServiceHelper
-import swe.service.Task.ActivityMaster.{GetTask, GetTasks}
 import swe.service.Task.ActivityMaster.PollTasks.Response
+import swe.service.Task.ActivityMaster.{PostTask, GetTask, GetTasks}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -17,16 +17,21 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
     var runId: String = ""
 
-    def preProc(activityType: Activity.Type, apiMaster: TestProbe, input: Option[String] = None): ActorRef = {
-      val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
-      watch(activityMaster)
-      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version, input = input))
+    def postTaskToActivityMaster(activityType: Type, apiMaster: TestProbe, activityMaster: ActorRef, msg: PostTask): Unit = {
       activityMaster ! msg
       apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
       expectMsgPF() {
         case msg: String =>
           runId = msg
       }
+    }
+
+
+    def preProc(activityType: Activity.Type, apiMaster: TestProbe, input: Option[String] = None): ActorRef = {
+      val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
+      watch(activityMaster)
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version, input = input))
+      postTaskToActivityMaster(activityType, apiMaster, activityMaster, msg)
       activityMaster
     }
 
@@ -49,6 +54,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       }
     }
 
+
     val defaultActivityType = Activity.Type("demo", Some("v1.0"))
     "post activity trigger notify" in {
       val activityType = defaultActivityType
@@ -67,7 +73,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
         activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(x))
         expectMsgPF() {
-          case msg: Response =>
+          case msg: ActivityMaster.PollTasks.Response =>
             msg.instances.size shouldEqual 1
             msg.instances.head.activityType shouldBe defaultActivityType
             msg.instances.head.runId shouldBe runId
@@ -86,6 +92,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       postProc(activityMaster)
     }
+
 
     "heartbeat timeout trigger activity failure" in {
       val apiMaster = TestProbe()
@@ -110,12 +117,8 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(defaultActivityType.name,
         defaultActivityType.version, heartbeatTimeout = Some(12)))
-      activityMaster ! msg
-      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(defaultActivityType))
-      expectMsgPF() {
-        case msg: String =>
-          runId = msg
-      }
+      postTaskToActivityMaster(defaultActivityType, apiMaster, activityMaster, msg)
+
 
       activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
       expectMsgPF() {
@@ -149,7 +152,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
       expectMsgPF() {
-        case msg: Response =>
+        case msg: ActivityMaster.PollTasks.Response =>
           msg.instances.size shouldEqual 1
           msg.instances.head.activityType shouldBe defaultActivityType
           msg.instances.head.runId shouldBe runId
@@ -211,7 +214,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
       expectMsgPF() {
-        case msg: Response =>
+        case msg: ActivityMaster.PollTasks.Response =>
           msg.instances.size shouldEqual 1
           msg.instances.head.activityType shouldBe defaultActivityType
           msg.instances.head.runId shouldBe runId
@@ -249,7 +252,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
         checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
 
         activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
-        expectMsgType[Response]
+        expectMsgType[ActivityMaster.PollTasks.Response]
 
         val status = Activity.Status.Complete.value
         activityMaster ! ActivityMaster.PostTaskStatus(runId, ActivityMaster.PostTaskStatus.Entity(status))
@@ -268,8 +271,22 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
         }
       }
 
+
+      val perPageNum = 20
+      for (pageNum <- 1 to 200) {
+        activityMaster ! ActivityMaster.GetTasks(pageNum, perPageNum)
+        expectMsgPF() {
+          case msg: GetTasks.Response =>
+            if (pageNum * perPageNum <= activityMaxEndedStoreSize) {
+              msg.instances.size shouldBe perPageNum
+              msg.instances.map(_.runId) shouldBe runIdList.reverse.slice((pageNum - 1) * perPageNum, pageNum * perPageNum)
+            }
+        }
+      }
+
       postProc(activityMaster)
     }
+
 
 
     "max event stored num" in {
@@ -278,12 +295,9 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
       watch(activityMaster)
 
-      activityMaster ! ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(defaultActivityType.name, defaultActivityType.version))
-      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(defaultActivityType))
-      expectMsgPF() {
-        case msg: String =>
-          runId = msg
-      }
+      postTaskToActivityMaster(defaultActivityType, apiMaster, activityMaster, ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(defaultActivityType.name, defaultActivityType.version)))
+
+
       checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
 
       for (i <- 1 to activityMaxEventStoreSize + 1) {
@@ -297,7 +311,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
         activityMaster ! ActivityMaster.GetTask(runId)
         expectMsgPF() {
-          case msg: Some[Activity.Instance] =>
+          case msg: Some[Instance] =>
             msg.get.history.size shouldBe math.min(i, activityMaxEventStoreSize)
         }
       }
@@ -308,7 +322,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       activityMaster ! ActivityMaster.GetTask(runId)
       expectMsgPF() {
-        case msg: Some[Activity.Instance] =>
+        case msg: Some[Instance] =>
           msg.get.history.size shouldBe activityMaxEventStoreSize
           msg.get.history.last.status shouldBe status
       }

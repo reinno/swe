@@ -19,6 +19,7 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
     pathPrefix("task") {
       pathPrefix(Segment) {
         runId: String => {
+
           path("heartbeat") {
             post {
               entity(as[ActivityMaster.PostTaskHeartBeat.Entity]) {
@@ -48,7 +49,9 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
             entity => askActorRoute[String](apiMaster, ActivityMaster.PostTask(entity))
           }
         } ~ get {
-          askActorRoute[ActivityMaster.GetTasks.Response](apiMaster, ActivityMaster.GetTasks)
+          parameters('cur_page.as[Int] ? 1, 'per_page_num.as[Int] ? 20) { (cur_page, per_page_num) =>
+            askActorRoute[ActivityMaster.GetTasks.Response](apiMaster, ActivityMaster.GetTasks(cur_page, per_page_num))
+          }
         }
       }
     }

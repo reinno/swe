@@ -27,10 +27,17 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
     }
 
 
-    def preProc(activityType: Activity.Type, apiMaster: TestProbe, input: Option[String] = None): ActorRef = {
+    def preProc(activityType: Activity.Type,
+                apiMaster: TestProbe,
+                input: Option[String] = None,
+                startToCloseTimeout: Option[Int] = Some(60)): ActorRef = {
       val activityMaster = system.actorOf(ActivityMaster.props(apiMaster.ref))
       watch(activityMaster)
-      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version, input = input))
+      val msg = ActivityMaster.PostTask(
+        ActivityMaster.PostTaskEntity(activityType.name,
+          activityType.version,
+          startToCloseTimeout = startToCloseTimeout,
+          input = input))
       postTaskToActivityMaster(activityType, apiMaster, activityMaster, msg)
       activityMaster
     }
@@ -133,6 +140,44 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
 
       expectNoMsg(6 seconds)
       checkActivityStatus(activityMaster, runId, defaultActivityType, timeoutStatus, Some(timeoutStatus))
+
+      postProc(activityMaster)
+    }
+
+    "start to end timeout trigger activity failure" in {
+      val apiMaster = TestProbe()
+      val activityMaster: ActorRef =
+        preProc(defaultActivityType, apiMaster, startToCloseTimeout = Some(10))
+
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.WaitScheduled.value, None)
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(defaultActivityType))
+      expectMsgPF() {
+        case msg: Response =>
+          msg.instances.size shouldEqual 1
+          msg.instances.head.activityType shouldBe defaultActivityType
+          msg.instances.head.runId shouldBe runId
+      }
+
+      expectNoMsg(2 seconds)
+      println("1st heartbeat")
+      activityMaster ! ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity(Some("demo")))
+      expectMsg(StatusCodes.OK)
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Running.value, None)
+      expectNoMsg(4 seconds)
+      println("2nd heartbeat")
+      activityMaster ! ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity(Some("demo")))
+      expectMsg(StatusCodes.OK)
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Running.value, None)
+      expectNoMsg(4 seconds)
+      println("3rd heartbeat")
+      activityMaster ! ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity(Some("demo")))
+      expectMsg(StatusCodes.OK)
+      checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Running.value, None)
+      expectNoMsg(4 seconds)
+      println("timeout")
+      checkActivityStatus(activityMaster, runId, defaultActivityType,
+        Activity.Status.Timeout.value, Some(Activity.Status.Timeout.value))
 
       postProc(activityMaster)
     }

@@ -156,6 +156,8 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       taskRunning.values.foreach(instance => {
         if (isInstanceHeartbeatTimeout(instance, now)) {
           updateActivityStatus(instance.runId, Activity.Status.Timeout.value, Some("heartbeat timeout"))
+        } else if (isInstanceStartToCloseTimeout(instance, now)) {
+          updateActivityStatus(instance.runId, Activity.Status.Timeout.value, Some("start to close timeout"))
         }
       })
 
@@ -192,6 +194,22 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
         }
       case Some(time) =>
         isTimeout(time)
+    }
+  }
+
+  private def isInstanceStartToCloseTimeout(instance: Activity.Instance, now: DateTime): Boolean = {
+    instance.startToCloseTimeout match {
+      case None =>
+        //activity not started
+        false
+      case Some(timeout) =>
+        instance.startTimeStamp match {
+          case None =>
+            //timeout not set
+            false
+          case Some(time) =>
+            (time to now).toDuration.getStandardSeconds > timeout.toSeconds
+        }
     }
   }
 
@@ -257,7 +275,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
   private def getActivityInstance(msg: PostTask): Activity.Instance = {
     val heartbeatTimeout = msg.entity.heartbeatTimeout
       .map(Duration4s(_, SECONDS)).getOrElse(settings.defaultHeartBeatTimeout)
-    val startToCloseTimeout = msg.entity.heartbeatTimeout
+    val startToCloseTimeout = msg.entity.startToCloseTimeout
       .map(Duration4s(_, SECONDS)).getOrElse(settings.defaultStartToEndTimeout)
 
     Activity.Instance(runId = getRunId,

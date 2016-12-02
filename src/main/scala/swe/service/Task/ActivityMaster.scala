@@ -62,7 +62,7 @@ object ActivityMaster {
 
   case class GetTask(runId: String) extends Msg
 
-  case class GetTasks(curPage: Int, perPageNum: Int)
+  case class GetTasks(curPage: Int, perPageNum: Int) extends Msg
   case object GetTasks extends Msg {
 
     case class Response(instances: List[Activity.Instance])

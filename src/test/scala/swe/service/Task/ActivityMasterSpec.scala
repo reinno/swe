@@ -100,6 +100,21 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       postProc(activityMaster)
     }
 
+    "delete wait scheduled tasks success" in {
+      val apiMaster = TestProbe()
+      val activityMaster: ActorRef =
+        preProc(defaultActivityType, apiMaster)
+
+      checkActivityStatus(activityMaster, runId, defaultActivityType,
+        Activity.Status.WaitScheduled.value, None)
+      activityMaster ! ActivityMaster.DeleteTask(runId)
+      expectMsg(StatusCodes.OK)
+      checkActivityStatus(activityMaster, runId, defaultActivityType,
+        Activity.Status.Deleted.value, Some(Activity.Status.Deleted.value))
+
+      postProc(activityMaster)
+    }
+
 
     "heartbeat timeout trigger activity failure" in {
       val apiMaster = TestProbe()
@@ -169,7 +184,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       activityMaster ! ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity(Some("demo")))
       expectMsg(StatusCodes.OK)
       checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Running.value, None)
-      expectNoMsg(4 seconds)
+      expectNoMsg(2 seconds)
       println("3rd heartbeat")
       activityMaster ! ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity(Some("demo")))
       expectMsg(StatusCodes.OK)

@@ -150,6 +150,27 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       sender ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
         .sortBy(_.createTimeStamp).reverse)
 
+    case msg: DeleteTask =>
+      val deletedStatus = Activity.Status.Deleted.value
+      taskRunning.get(msg.taskId) match {
+        case None =>
+          taskWaitScheduled.find(_.runId == msg.taskId) match {
+            case None =>
+              sender() ! StatusCodes.NotFound
+            case Some(task) =>
+              taskWaitScheduled = taskWaitScheduled.filterNot(_.runId == task.runId)
+              taskEnded.update(task.runId, task.copy(currentStatus = deletedStatus,
+                closeStatus = Some(deletedStatus),
+                closeTimeStamp = Some(DateTime.now)))
+              sender() ! StatusCodes.OK
+          }
+        case Some(task) =>
+          updateActivityStatus(msg.taskId, deletedStatus, None, None)
+          sender() ! StatusCodes.OK
+      }
+
+
+
     case "check" =>
       //log.info("check timeout")
       val now = DateTime.now

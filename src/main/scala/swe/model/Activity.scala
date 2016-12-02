@@ -140,44 +140,44 @@ object Activity {
       val tableName: String = "ACTIVITY_INSTANCES"
 
       class Instances(tag: Tag) extends Table[PlainData](tag, "ACTIVITY_INSTANCES") {
-        def activityId = column[String]("ACTIVITY_ID")
+        def activityId = column[Option[String]]("ACTIVITY_ID")
         def runId = column[String]("RUN_ID", O.PrimaryKey)
         def activityName = column[String]("NAME")
-        def activityVersion = column[String]("VERSION")
+        def activityVersion = column[Option[String]]("VERSION")
         def priority = column[Int]("PRIORITY")
         def heartbeatTimeoutSec = column[Int]("HEARTBEAT_TIMEOUT_SECS")
-        def startToCloseTimeoutSec = column[Int]("START_TO_CLOSE_TIMEOUT_SECS")
-        def input = column[String]("INPUT")
-        def output = column[String]("OUTPUT")
+        def startToCloseTimeoutSec = column[Option[Int]]("START_TO_CLOSE_TIMEOUT_SECS")
+        def input = column[Option[String]]("INPUT")
+        def output = column[Option[String]]("OUTPUT")
         def createTimeStamp = column[String]("CREATE_TIMESTAMP")
-        def startTimeStamp = column[String]("START_TIMESTAMP")
-        def lastHeartBeatTimeStamp = column[String]("LAST_HEARTBEAT_TIMESTAMP")
-        def closeTimeStamp = column[String]("CLOSE_TIMESTAMP")
+        def startTimeStamp = column[Option[String]]("START_TIMESTAMP")
+        def lastHeartBeatTimeStamp = column[Option[String]]("LAST_HEARTBEAT_TIMESTAMP")
+        def closeTimeStamp = column[Option[String]]("CLOSE_TIMESTAMP")
         def currentStatus = column[String]("CURRENT_STATUS")
-        def closeStatus = column[String]("CLOSE_STATUS")
+        def closeStatus = column[Option[String]]("CLOSE_STATUS")
         def cancelRequested = column[Boolean]("CANCEL_REQUESTED")
 
         // Every table needs a * projection with the same type as the table's type parameter
-        def * = (activityId.?, runId, activityName, activityVersion.?, priority,
-          heartbeatTimeoutSec, startToCloseTimeoutSec.?, input.?, output.?,
-          createTimeStamp, startTimeStamp.?, lastHeartBeatTimeStamp.?, closeTimeStamp.?,
-          currentStatus, closeStatus.?, cancelRequested) <> (PlainData.tupled, PlainData.unapply)
+        def * = (activityId, runId, activityName, activityVersion, priority,
+          heartbeatTimeoutSec, startToCloseTimeoutSec, input, output,
+          createTimeStamp, startTimeStamp, lastHeartBeatTimeStamp, closeTimeStamp,
+          currentStatus, closeStatus, cancelRequested) <> (PlainData.tupled, PlainData.unapply)
       }
 
       val query = TableQuery[Instances]
 
       val findByRunId = query.findBy(_.runId)
+      //val findAll = query.
 
       def setup() = DBIO.seq (
         query.schema.create,
-        query += PlainData(None, "0", "demo", None, 0, 10, None, None, None, "1984", None, None, None, "Running", None, false)
+        query += PlainData(Some("222"), "0", "demo", None, 0, 10, None, None, None, "1984", None, None, None, "Running", None, false)
       )
 
       val destroy = DBIO.seq (
         query.schema.drop
       )
     }
-
   }
 
 

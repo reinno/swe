@@ -189,7 +189,7 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       activityMaster ! ActivityMaster.PostTaskHeartBeat(runId, ActivityMaster.PostTaskHeartBeat.Entity(Some("demo")))
       expectMsg(StatusCodes.OK)
       checkActivityStatus(activityMaster, runId, defaultActivityType, Activity.Status.Running.value, None)
-      expectNoMsg(4 seconds)
+      expectNoMsg(5 seconds)
       println("timeout")
       checkActivityStatus(activityMaster, runId, defaultActivityType,
         Activity.Status.Timeout.value, Some(Activity.Status.Timeout.value))

@@ -3,12 +3,12 @@ package swe.service.Task
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCodes
 import akka.testkit.TestProbe
-import swe.SettingsActor
 import swe.model.Activity
-import swe.model.Activity.{Type, Instance}
+import swe.model.Activity.{Instance, Type}
 import swe.service.BaseServiceHelper
 import swe.service.Task.ActivityMaster.PollTasks.Response
-import swe.service.Task.ActivityMaster.{PostTask, GetTask, GetTasks}
+import swe.service.Task.ActivityMaster.{GetTasks, PostTask}
+
 import scala.concurrent.duration._
 import scala.language.postfixOps
 

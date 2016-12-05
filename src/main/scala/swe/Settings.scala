@@ -14,6 +14,8 @@ class Settings(system: ExtendedActorSystem) extends Extension {
     Duration(system.settings.config.getDuration("swe.activity.defaultStartToEndTimeout", SECONDS), SECONDS)
   val activityCheckInterval =
     Duration(system.settings.config.getDuration("swe.activity.checkInterval", SECONDS), SECONDS)
+  val activityPollInterval =
+    Duration(system.settings.config.getDuration("swe.activity.pollInterval", SECONDS), SECONDS)
   val activityMaxEndedStoreSize = system.settings.config.getInt("swe.activity.maxEndedStoreNum")
   val activityMaxEventNum = system.settings.config.getInt("swe.activity.maxEventNum")
 

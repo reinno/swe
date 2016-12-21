@@ -90,6 +90,74 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       }
     }
 
+    "poll multie activity 1 by 1 success" in {
+      val apiMaster = TestProbe()
+
+      val activityType = defaultActivityType
+
+      val activityMaster: ActorRef =
+        preProc(activityType, apiMaster)
+
+
+      var runId2 = ""
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version))
+      activityMaster ! msg
+      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
+      expectMsgPF() {
+        case msg: String =>
+          runId2 = msg
+      }
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType, 10))
+      expectMsgPF() {
+        case msg: Response =>
+          msg.instances.size shouldEqual 2
+          msg.instances.head.activityType shouldBe defaultActivityType
+      }
+
+      postProc(activityMaster)
+    }
+
+
+    "poll multie activity success" in {
+      val apiMaster = TestProbe()
+
+      val activityType = defaultActivityType
+
+      val activityMaster: ActorRef =
+        preProc(activityType, apiMaster)
+
+
+      var runId2 = ""
+      val msg = ActivityMaster.PostTask(ActivityMaster.PostTaskEntity(activityType.name, activityType.version))
+      activityMaster ! msg
+      apiMaster.expectMsg(ActivityPoller.NewTaskNotify(activityType))
+      expectMsgPF() {
+        case msg: String =>
+          runId2 = msg
+      }
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType))
+      expectMsgPF() {
+        case msg: Response =>
+          println("check1st")
+          msg.instances.size shouldEqual 1
+          msg.instances.head.activityType shouldBe defaultActivityType
+          msg.instances.head.runId shouldBe runId
+      }
+
+      activityMaster ! ActivityMaster.PollTasks(ActivityMaster.PollTasks.Entity(activityType))
+      expectMsgPF() {
+        case msg: Response =>
+          println("check2nd")
+          msg.instances.size shouldEqual 1
+          msg.instances.head.activityType shouldBe defaultActivityType
+          msg.instances.head.runId shouldBe runId2
+      }
+
+      postProc(activityMaster)
+    }
+
     "get wait scheduled tasks success" in {
       val apiMaster = TestProbe()
       val activityMaster: ActorRef =

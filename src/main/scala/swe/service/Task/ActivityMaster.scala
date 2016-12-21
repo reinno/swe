@@ -7,6 +7,7 @@ import swe.SettingsActor
 import swe.model.Activity
 import swe.service.BaseService
 
+import scala.annotation.tailrec
 import scala.concurrent.duration.{Duration => Duration4s, SECONDS}
 import scala.language.postfixOps
 
@@ -255,14 +256,31 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
   private def popWaitScheduledActivities(param: PollTasks.Entity,
                                          activities: List[Activity.Instance])
   : (List[Activity.Instance], List[Activity.Instance]) = {
-    activities.foldLeft[(List[Activity.Instance], List[Activity.Instance])]((Nil, Nil))(
-      (result, activity) =>
-        if (activityMatch(activity, param.activityType)) {
-          (result._1, result._2 :+ activity)
-        } else {
-          (result._1 :+ activity, result._2)
-        }
-    )
+
+    @tailrec
+    def loop(activities: List[Activity.Instance], num: Int, res: (List[Activity.Instance], List[Activity.Instance]))
+    : (List[Activity.Instance], List[Activity.Instance]) = {
+      activities match {
+        case Nil =>
+          res
+        case h::t =>
+          num match {
+            case 0 =>
+              loop(t, num, (res._1 :+ h, res._2))
+            case _ =>
+              val result = {
+                if (activityMatch(h, param.activityType)) {
+                  (res._1, res._2 :+ h)
+                } else {
+                  (res._1 :+ h, res._2)
+                }
+              }
+              loop(t, num - 1, result)
+          }
+      }
+    }
+
+    loop(activities, param.num, (Nil, Nil))
   }
 
   private def activityMatch(activity: Activity.Instance, activityType: Activity.Type): Boolean = {

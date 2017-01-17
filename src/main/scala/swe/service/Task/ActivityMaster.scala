@@ -90,7 +90,6 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
   import ActivityMaster._
   import context.dispatcher
 
-
   var taskWaitScheduled: List[Activity.Instance] = Nil
   var taskRunning: Map[String, Activity.Instance] = Map.empty
   val taskEnded: mutable.Map[String, Instance] =
@@ -112,10 +111,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     case msg: PollTasks =>
       val result = popWaitScheduledActivities(msg.entity, taskWaitScheduled)
       taskWaitScheduled = result._1
-      result._2.foreach(instance =>
-        taskRunning = taskRunning.updated(instance.runId,
-          instance.copy(startTimeStamp = Some(DateTime.now),
-            currentStatus = Activity.Status.Initialize.value)))
+      moveActivitiesToRunningList(result._2)
       sender ! PollTasks.Response(result._2.map(Activity.InstanceInput(_)))
 
     case msg: PostTaskStatus =>
@@ -144,12 +140,10 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       sender() ! getTask(msg.runId)
 
     case GetTasks(curPage, perPageNum) =>
-      sender() ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
-        .sortBy(_.createTimeStamp).reverse.slice((curPage - 1) * perPageNum, curPage * perPageNum))
+      sender() ! GetTasks.Response(getAllSortedActivities.slice((curPage - 1) * perPageNum, curPage * perPageNum))
 
     case GetTasks =>
-      sender ! GetTasks.Response((taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
-        .sortBy(_.createTimeStamp).reverse)
+      sender ! GetTasks.Response(getAllSortedActivities)
 
     case msg: DeleteTask =>
       val deletedStatus = Activity.Status.Deleted.value
@@ -188,6 +182,11 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
   }
 
   // scalastyle:on CyclomaticComplexityChecker
+
+  private def getAllSortedActivities: List[Instance] = {
+    (taskRunning.values.toList ++ taskEnded.values.toList ++ taskWaitScheduled)
+      .sortBy(_.createTimeStamp).reverse
+  }
 
   private def getTask(runId: String): Option[Activity.Instance] = {
     (taskRunning ++ taskEnded).get(runId) match {
@@ -347,5 +346,12 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       activity.activityType.name == activityType.name &&
         activity.activityType.version == activityType.version
     }
+  }
+
+  private def moveActivitiesToRunningList(tasks: List[Activity.Instance]): Unit = {
+    tasks.foreach(instance =>
+      taskRunning = taskRunning.updated(instance.runId,
+        instance.copy(startTimeStamp = Some(DateTime.now),
+          currentStatus = Activity.Status.Initialize.value)))
   }
 }

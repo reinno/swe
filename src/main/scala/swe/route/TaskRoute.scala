@@ -19,7 +19,6 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
     pathPrefix("task") {
       pathPrefix(Segment) {
         runId: String => {
-
           path("heartbeat") {
             post {
               entity(as[ActivityMaster.PostTaskHeartBeat.Entity]) {
@@ -40,6 +39,14 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
               askActorRoute[StatusCode](apiMaster, ActivityMaster.DeleteTask(runId))
             } ~ get {
               askActorRouteOption[Activity.Instance](apiMaster, ActivityMaster.GetTask(runId))
+            }
+          }
+        }
+      } ~ {
+        path("claiming") {
+          post {
+            entity(as[ActivityMaster.PollTasks.Entity]) {
+              entity => askActorRoute[ActivityMaster.PollTasks.Response](apiMaster, ActivityMaster.PollTasks(entity))
             }
           }
         }

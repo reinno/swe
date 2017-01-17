@@ -10,6 +10,7 @@ import org.joda.time.DateTime
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import swe.model.Activity
 import swe.service.Task.ActivityMaster
+import swe.service.Task.ActivityMaster._
 
 import scala.concurrent.duration.Duration
 
@@ -52,7 +53,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: ActivityMaster.GetTask =>
+          case msg: GetTask =>
             msg shouldBe ActivityMaster.GetTask(runId)
             sender ! Some(Activity.Instance(runId = runId,
               activityType = Activity.Type("demoTask"),
@@ -64,10 +65,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       }
     })
 
-    Get(s"/api/v1/task/$runId") ~> route ~> check {
-      print(response.entity)
-      status shouldBe StatusCodes.OK
-    }
+    simpleCheck(Get(s"/api/v1/task/$runId"))
   }
 
   it should "handle post task success" in {
@@ -75,7 +73,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: ActivityMaster.PostTask =>
+          case msg: PostTask =>
             msg.entity shouldBe ActivityMaster.PostTaskEntity("test")
             sender ! "1"
             KeepRunning
@@ -88,10 +86,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       uri = "/api/v1/task",
       entity = HttpEntity(MediaTypes.`application/json`, ByteString("""{"name":"test"}""")))
 
-    postRequest ~> route ~> check {
-      print(response.entity)
-      status shouldBe StatusCodes.OK
-    }
+    simpleCheck(postRequest)
   }
 
   it should "handle post task heartbeat success" in {
@@ -99,7 +94,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: ActivityMaster.PostTaskHeartBeat =>
+          case msg: PostTaskHeartBeat =>
             msg.entity shouldBe ActivityMaster.PostTaskHeartBeat.Entity(Some("test"))
             sender ! StatusCodes.OK
             KeepRunning
@@ -112,10 +107,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       uri = "/api/v1/task/1/heartbeat",
       entity = HttpEntity(MediaTypes.`application/json`,  ByteString("""{"details":"test"}""")))
 
-    postRequest ~> route ~> check {
-      print(response.entity)
-      status shouldBe StatusCodes.OK
-    }
+    simpleCheck(postRequest)
   }
 
 
@@ -124,7 +116,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: ActivityMaster.PostTaskHeartBeat =>
+          case msg: PostTaskHeartBeat =>
             msg.entity shouldBe ActivityMaster.PostTaskHeartBeat.Entity(None)
             sender ! StatusCodes.OK
             KeepRunning
@@ -136,10 +128,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       HttpMethods.POST,
       uri = "/api/v1/task/1/heartbeat")
 
-    postRequest ~> route ~> check {
-      print(response.entity)
-      status shouldBe StatusCodes.OK
-    }
+    simpleCheck(postRequest)
   }
 
 
@@ -148,7 +137,7 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: ActivityMaster.PostTaskStatus =>
+          case msg: PostTaskStatus =>
             msg.entity shouldBe ActivityMaster.PostTaskStatus.Entity("Complete", Some("test"), Some("1"))
             sender ! StatusCodes.OK
             KeepRunning
@@ -169,6 +158,42 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
       uri = "/api/v1/task/1/status",
       entity = HttpEntity(MediaTypes.`application/json`, jsonRequest))
 
+    simpleCheck(postRequest)
+  }
+
+  it should "handle post task claiming success" in {
+
+    apiMasterProbe.setAutoPilot(new AutoPilot {
+      override def run(sender: ActorRef, msg: Any): AutoPilot = {
+        msg match {
+          case msg: PollTasks =>
+            msg.entity shouldBe ActivityMaster.PollTasks.Entity(Activity.Type("demoTask", Some("v1.0")), 1)
+            sender ! ActivityMaster.PollTasks.Response(Nil)
+            KeepRunning
+        }
+      }
+    })
+
+    val jsonRequest = ByteString(
+      s"""
+         |{
+         |    "activityType": {
+         |      "name": "demoTask",
+         |      "version": "v1.0"
+         |    },
+         |    "num": 1
+         |}
+        """.stripMargin)
+
+    val postRequest = HttpRequest(
+      HttpMethods.POST,
+      uri = "/api/v1/task/claiming",
+      entity = HttpEntity(MediaTypes.`application/json`, jsonRequest))
+
+    simpleCheck(postRequest)
+  }
+
+  def simpleCheck(postRequest: HttpRequest): Unit = {
     postRequest ~> route ~> check {
       print(response.entity)
       status shouldBe StatusCodes.OK

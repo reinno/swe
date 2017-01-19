@@ -26,7 +26,7 @@ object Activity {
                            runId: String,
                            activityType: Activity.Type,
                            workflowExecution: Option[Workflow.Instance] = None,
-                           startedEventId: Option[String],
+                           startedEventId: Option[String] = None,
                            input: Option[String] = None)
 
 

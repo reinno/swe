@@ -9,7 +9,7 @@ import akka.util.ByteString
 import org.joda.time.DateTime
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import swe.model.Activity
-import swe.service.Task.ActivityMaster
+import swe.service.Task.{ActivityPassivePoller, ActivityMaster}
 import swe.service.Task.ActivityMaster._
 
 import scala.concurrent.duration.Duration
@@ -166,8 +166,8 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     apiMasterProbe.setAutoPilot(new AutoPilot {
       override def run(sender: ActorRef, msg: Any): AutoPilot = {
         msg match {
-          case msg: PollTasks =>
-            msg.entity shouldBe ActivityMaster.PollTasks.Entity(Activity.Type("demoTask", Some("v1.0")), 1)
+          case msg: ActivityPassivePoller.StoreClaiming =>
+            msg.request shouldBe ActivityMaster.PollTasks.Entity(Activity.Type("demoTask", Some("v1.0")), 1)
             sender ! ActivityMaster.PollTasks.Response(Nil)
             KeepRunning
         }
@@ -177,10 +177,8 @@ class TaskRouteSpec extends FlatSpec with ScalatestRouteTest with Matchers with 
     val jsonRequest = ByteString(
       s"""
          |{
-         |    "activityType": {
-         |      "name": "demoTask",
-         |      "version": "v1.0"
-         |    },
+         |    "name": "demoTask",
+         |    "version": "v1.0",
          |    "num": 1
          |}
         """.stripMargin)

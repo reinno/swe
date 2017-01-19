@@ -7,11 +7,16 @@ import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 import de.heikoseeberger.akkahttpjson4s.Json4sSupport
 import swe.model.Activity
-import swe.service.Task.ActivityMaster
+import swe.service.Task.{ActivityMaster, ActivityPassivePoller}
 
 import scala.concurrent.ExecutionContext
 
+object TaskRoute {
+  case class PostTaskClaimingEntity(name: String, version: Option[String] = None, num: Int = 1)
+}
+
 class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends BaseRoute {
+  import TaskRoute._
   import BaseRoute._
   import Json4sSupport._
 
@@ -45,8 +50,10 @@ class TaskRoute(val apiMaster: ActorRef)(implicit ec: ExecutionContext) extends 
       } ~ {
         path("claiming") {
           post {
-            entity(as[ActivityMaster.PollTasks.Entity]) {
-              entity => askActorRoute[ActivityMaster.PollTasks.Response](apiMaster, ActivityMaster.PollTasks(entity))
+            entity(as[PostTaskClaimingEntity]) {
+              entity => askActorRoute[ActivityMaster.PollTasks.Response](apiMaster, ActivityPassivePoller.StoreClaiming(
+                ActivityMaster.PollTasks.Entity(Activity.Type(entity.name, entity.version), entity.num)
+              ))
             }
           }
         }

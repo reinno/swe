@@ -1,6 +1,7 @@
 package swe.route
 
 import akka.actor.{ActorRef, ActorSystem}
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.Materializer
 
@@ -14,8 +15,9 @@ trait ApiRoute {
   val apiMaster: ActorRef
 
   val taskRoute = new TaskRoute(apiMaster)
+  val versionRoute = new VersionRoute()
 
-  def route: Route = taskRoute.route
+  def route: Route = taskRoute.route ~ versionRoute.route
 }
 
 class ApiRouteService(override val apiMaster: ActorRef)

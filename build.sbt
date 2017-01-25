@@ -1,6 +1,10 @@
 import sbtassembly.AssemblyPlugin.autoImport._
 import com.typesafe.sbt.SbtNativePackager.autoImport._
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import scala.util.Try
+
 name          := "swe"
 version       := "0.1"
 scalaVersion  := "2.11.8"
@@ -65,6 +69,17 @@ val classPath = Seq(
 packageOptions += Package.ManifestAttributes(
   "Class-Path" -> classPath.mkString(" ")
 )
+
+lazy val root = (project in file(".")).
+  enablePlugins(BuildInfoPlugin).
+  settings(
+    buildInfoObject := "BuildInfo",
+    buildInfoKeys := Seq[BuildInfoKey](
+      BuildInfoKey.action("buildDate")(new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date())),
+      // if the build is done outside of a git repository, we still want it to succeed
+      BuildInfoKey.action("buildSha")(Try(Process("git rev-parse HEAD").!!.stripLineEnd).getOrElse("?"))),
+    buildInfoPackage := "swe.version"
+  )
 
 //test in assembly := {}
 

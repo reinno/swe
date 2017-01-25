@@ -95,6 +95,7 @@ object Activity {
   case class Instance(activityId: Option[String] = None,
                       runId: String,
                       activityType: Activity.Type,
+                      labels: Map[String, String] = Map.empty,
                       workflowExecution: Option[Workflow.Instance] = None,
                       startedEventId: Option[String] = None,
                       scheduleToStart: Option[Duration] = Some(Duration.Inf),

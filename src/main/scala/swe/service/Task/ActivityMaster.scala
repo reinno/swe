@@ -83,6 +83,40 @@ object ActivityMaster {
   def props(apiMaster: ActorRef): Props = Props(new ActivityMaster(apiMaster))
 
   def getRunId: String = java.util.UUID.randomUUID.toString
+
+  def popWaitScheduledActivities(param: PollTasks.Entity, activities: List[Activity.Instance])
+  : (List[Activity.Instance], List[Activity.Instance]) = {
+    @tailrec
+    def loop(activities: List[Activity.Instance], num: Int, res: (List[Activity.Instance], List[Activity.Instance]))
+    : (List[Activity.Instance], List[Activity.Instance]) = {
+      activities match {
+        case Nil =>
+          res
+        case h::t =>
+          num match {
+            case 0 =>
+              loop(t, num, (res._1 :+ h, res._2))
+            case _ =>
+              if (activityMatch(h, param.activityType)) {
+                loop(t, num - 1, (res._1, res._2 :+ h))
+              } else {
+                loop(t, num, (res._1 :+ h, res._2))
+              }
+          }
+      }
+    }
+
+    loop(activities, param.num, (Nil, Nil))
+  }
+
+  private def activityMatch(activity: Activity.Instance, activityType: Activity.Type): Boolean = {
+    if (activity.activityType.version.isEmpty || activityType.version.isEmpty) {
+      activity.activityType.name == activityType.name
+    } else {
+      activity.activityType.name == activityType.name &&
+        activity.activityType.version == activityType.version
+    }
+  }
 }
 
 class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor {
@@ -262,7 +296,7 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
           history = history.drop(1)
         }
 
-        if (isEndedStatus(status)) {
+        if (Activity.Status.isEnded(status)) {
           taskEnded.update(runId, activity.copy(currentStatus = status,
             output = output,
             closeStatus = Some(status),
@@ -283,16 +317,6 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
     }
   }
 
-  private def isEndedStatus(status: String): Boolean = {
-    Activity.Status.unapply(status) match {
-      case s: Some[Activity.Status] if s.get.isEndedStatus =>
-        true
-
-      case _ =>
-        false
-    }
-  }
-
   private def getActivityInstance(msg: PostTask): Activity.Instance = {
     val heartbeatTimeout = msg.entity.heartbeatTimeout
       .map(Duration4s(_, SECONDS)).getOrElse(settings.defaultHeartBeatTimeout)
@@ -309,44 +333,6 @@ class ActivityMaster(apiMaster: ActorRef) extends BaseService with SettingsActor
       priority = msg.entity.defaultTaskPriority)
   }
 
-  private def popWaitScheduledActivities(param: PollTasks.Entity,
-                                         activities: List[Activity.Instance])
-  : (List[Activity.Instance], List[Activity.Instance]) = {
-
-    @tailrec
-    def loop(activities: List[Activity.Instance], num: Int, res: (List[Activity.Instance], List[Activity.Instance]))
-    : (List[Activity.Instance], List[Activity.Instance]) = {
-      activities match {
-        case Nil =>
-          res
-        case h::t =>
-          num match {
-            case 0 =>
-              loop(t, num, (res._1 :+ h, res._2))
-            case _ =>
-              val result = {
-                if (activityMatch(h, param.activityType)) {
-                  (res._1, res._2 :+ h)
-                } else {
-                  (res._1 :+ h, res._2)
-                }
-              }
-              loop(t, num - 1, result)
-          }
-      }
-    }
-
-    loop(activities, param.num, (Nil, Nil))
-  }
-
-  private def activityMatch(activity: Activity.Instance, activityType: Activity.Type): Boolean = {
-    if (activity.activityType.version.isEmpty || activityType.version.isEmpty) {
-      activity.activityType.name == activityType.name
-    } else {
-      activity.activityType.name == activityType.name &&
-        activity.activityType.version == activityType.version
-    }
-  }
 
   private def moveActivitiesToRunningList(tasks: List[Activity.Instance]): Unit = {
     tasks.foreach(instance =>

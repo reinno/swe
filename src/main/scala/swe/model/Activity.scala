@@ -78,6 +78,16 @@ object Activity {
         case "Timeout" => Some(Timeout)
         case _ => None
       }
+
+    def isEnded(status: String): Boolean = {
+      Activity.Status.unapply(status) match {
+        case s: Some[Activity.Status] if s.get.isEndedStatus =>
+          true
+
+        case _ =>
+          false
+      }
+    }
   }
 
   case class Event(timestamp: DateTime, status: String, details: Option[String])
@@ -99,7 +109,7 @@ object Activity {
                       startTimeStamp: Option[DateTime] = None,
                       lastHeartBeatTimeStamp: Option[DateTime] = None,
                       closeTimeStamp: Option[DateTime] = None,
-                      currentStatus: String,
+                      currentStatus: String = Status.WaitScheduled.value,
                       closeStatus: Option[String] = None,
                       cancelRequested: Boolean = false)
 

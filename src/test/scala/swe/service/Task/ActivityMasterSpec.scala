@@ -11,6 +11,7 @@ import swe.service.Task.ActivityMaster.{GetTasks, PostTask}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import com.github.nscala_time.time.Imports.DateTime
 
 class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
   "activity master" must {
@@ -457,6 +458,48 @@ class ActivityMasterSpec extends BaseServiceHelper.TestSpec {
       checkActivityStatus(activityMaster, runId, defaultActivityType, status, Some(status))
 
       postProc(activityMaster)
+    }
+  }
+
+  "pop instances function" must {
+    "push task A poll task A" in {
+      val activities = List(Activity.Instance(runId = "1",
+        activityType = Activity.Type("A"), createTimeStamp = DateTime.now))
+      val param = ActivityMaster.PollTasks.Entity(Activity.Type("A"))
+
+      val result = ActivityMaster.popWaitScheduledActivities(param, activities)
+
+      result._1 shouldBe Nil
+      result._2 shouldBe activities
+    }
+
+    "push task A task B poll task B" in {
+      val activityA = Activity.Instance(runId = "1", activityType = Activity.Type("A"), createTimeStamp = DateTime.now)
+      val activityB = Activity.Instance(runId = "2", activityType = Activity.Type("B"), createTimeStamp = DateTime.now)
+
+      val param = ActivityMaster.PollTasks.Entity(Activity.Type("B"))
+
+      val result = ActivityMaster.popWaitScheduledActivities(param, List(activityA, activityB))
+
+      result._1 shouldBe List(activityA)
+      result._2 shouldBe List(activityB)
+    }
+
+
+    "push task AAAA poll task B" in {
+      var activities: List[Activity.Instance] = Nil
+      for (i <- 1 to 4) {
+        activities :+= Activity.Instance(runId = s"$i", activityType = Activity.Type("A"), createTimeStamp = DateTime.now)
+      }
+      val activityB = Activity.Instance(runId = "5", activityType = Activity.Type("B"), createTimeStamp = DateTime.now)
+      activities :+= activityB
+
+      val param = ActivityMaster.PollTasks.Entity(Activity.Type("B"))
+
+      val result = ActivityMaster.popWaitScheduledActivities(param, activities)
+
+      result._1.size shouldBe 4
+      result._2 shouldBe List(activityB)
     }
   }
 }
